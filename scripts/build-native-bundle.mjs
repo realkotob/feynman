@@ -6,7 +6,6 @@ import { spawnSync } from "node:child_process";
 const appRoot = resolve(import.meta.dirname, "..");
 const packageJson = JSON.parse(readFileSync(resolve(appRoot, "package.json"), "utf8"));
 const packageLockPath = resolve(appRoot, "package-lock.json");
-const rootNodeModulesPath = resolve(appRoot, "node_modules");
 const bundledNodeVersion = process.env.FEYNMAN_BUNDLED_NODE_VERSION ?? process.version.slice(1);
 
 function fail(message) {
@@ -121,19 +120,19 @@ function copyPackageFiles(appDir) {
 	cpSync(packageLockPath, resolve(appDir, "package-lock.json"));
 }
 
-function installAppDependencies(appDir) {
-	if (existsSync(rootNodeModulesPath)) {
-		cpSync(rootNodeModulesPath, resolve(appDir, "node_modules"), { recursive: true });
-		if (process.platform === "win32") {
-			return;
-		}
-		run("npm", ["prune", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--loglevel", "error"], {
-			cwd: appDir,
-		});
-		return;
-	}
+function installAppDependencies(appDir, stagingRoot) {
+	const depsDir = resolve(stagingRoot, "prod-deps");
+	rmSync(depsDir, { recursive: true, force: true });
+	mkdirSync(depsDir, { recursive: true });
 
-	run("npm", ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--loglevel", "error"], { cwd: appDir });
+	cpSync(resolve(appRoot, "package.json"), resolve(depsDir, "package.json"));
+	cpSync(packageLockPath, resolve(depsDir, "package-lock.json"));
+
+	run("npm", ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--loglevel", "error"], {
+		cwd: depsDir,
+	});
+
+	cpSync(resolve(depsDir, "node_modules"), resolve(appDir, "node_modules"), { recursive: true });
 }
 
 function extractTarball(archivePath, destination, compressionFlag) {
@@ -269,7 +268,7 @@ function main() {
 
 	ensureBundledWorkspace();
 	copyPackageFiles(appDir);
-	installAppDependencies(appDir);
+	installAppDependencies(appDir, stagingRoot);
 
 	const appFeynmanDir = resolve(appDir, ".feynman");
 	extractTarball(resolve(appFeynmanDir, "runtime-workspace.tgz"), appFeynmanDir, "-xzf");
