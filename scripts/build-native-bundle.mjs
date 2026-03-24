@@ -277,10 +277,12 @@ function packBundle(bundleRoot, target, outDir) {
 
 	if (target.bundleExtension === "zip") {
 		if (process.platform === "win32") {
+			const bundleDir = dirname(bundleRoot).replace(/'/g, "''");
+			const bundleName = basename(bundleRoot).replace(/'/g, "''");
 			run("powershell", [
 				"-NoProfile",
 				"-Command",
-				`Compress-Archive -Path '${bundleRoot.replace(/'/g, "''")}\\*' -DestinationPath '${archivePath.replace(/'/g, "''")}' -Force`,
+				`Push-Location '${bundleDir}'; Compress-Archive -Path '${bundleName}' -DestinationPath '${archivePath.replace(/'/g, "''")}' -Force; Pop-Location`,
 			]);
 		} else {
 			run("zip", ["-qr", archivePath, basename(bundleRoot)], { cwd: resolve(bundleRoot, "..") });
