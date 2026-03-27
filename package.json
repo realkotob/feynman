@@ -26,6 +26,7 @@
     "scripts/",
     "skills/",
     "AGENTS.md",
+    "CONTRIBUTING.md",
     "README.md",
     ".env.example"
   ],

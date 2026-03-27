@@ -136,12 +136,16 @@ Built on [Pi](https://github.com/badlogic/pi-mono) for the agent runtime, [alpha
 
 ### Contributing
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor guide.
+
 ```bash
 git clone https://github.com/getcompanion-ai/feynman.git
 cd feynman
 nvm use || nvm install
-pnpm install
-pnpm start
+npm install
+npm test
+npm run typecheck
+npm run build
 ```
 
 [Docs](https://feynman.is/docs) · [MIT License](LICENSE)
