@@ -4,7 +4,7 @@ import { exec as execCallback } from "node:child_process";
 import { promisify } from "node:util";
 
 import { readJson } from "../pi/settings.js";
-import { promptChoice, promptText } from "../setup/prompts.js";
+import { promptChoice, promptSelect, promptText, type PromptSelectOption } from "../setup/prompts.js";
 import { openUrl } from "../system/open-url.js";
 import { printInfo, printSection, printSuccess, printWarning } from "../ui/terminal.js";
 import {
@@ -55,13 +55,22 @@ async function selectOAuthProvider(authPath: string, action: "login" | "logout")
 		return providers[0];
 	}
 
-	const choices = providers.map((provider) => `${provider.id} — ${provider.name ?? provider.id}`);
-	choices.push("Cancel");
-	const selection = await promptChoice(`Choose an OAuth provider to ${action}:`, choices, 0);
-	if (selection >= providers.length) {
+	const selection = await promptSelect<OAuthProviderInfo | "cancel">(
+		`Choose an OAuth provider to ${action}:`,
+		[
+			...providers.map((provider) => ({
+				value: provider,
+				label: provider.name ?? provider.id,
+				hint: provider.id,
+			})),
+			{ value: "cancel", label: "Cancel" },
+		],
+		providers[0],
+	);
+	if (selection === "cancel") {
 		return undefined;
 	}
-	return providers[selection];
+	return selection;
 }
 
 type ApiKeyProviderInfo = {
@@ -71,10 +80,10 @@ type ApiKeyProviderInfo = {
 };
 
 const API_KEY_PROVIDERS: ApiKeyProviderInfo[] = [
-	{ id: "__custom__", label: "Custom provider (baseUrl + API key)" },
 	{ id: "openai", label: "OpenAI Platform API", envVar: "OPENAI_API_KEY" },
 	{ id: "anthropic", label: "Anthropic API", envVar: "ANTHROPIC_API_KEY" },
 	{ id: "google", label: "Google Gemini API", envVar: "GEMINI_API_KEY" },
+	{ id: "__custom__", label: "Custom provider (local/self-hosted/proxy)" },
 	{ id: "amazon-bedrock", label: "Amazon Bedrock (AWS credential chain)" },
 	{ id: "openrouter", label: "OpenRouter", envVar: "OPENROUTER_API_KEY" },
 	{ id: "zai", label: "Z.AI / GLM", envVar: "ZAI_API_KEY" },
@@ -118,15 +127,21 @@ export function resolveModelProviderForCommand(
 }
 
 async function selectApiKeyProvider(): Promise<ApiKeyProviderInfo | undefined> {
-	const choices = API_KEY_PROVIDERS.map(
-		(provider) => `${provider.id} — ${provider.label}${provider.envVar ? ` (${provider.envVar})` : ""}`,
-	);
-	choices.push("Cancel");
-	const selection = await promptChoice("Choose an API-key provider:", choices, 0);
-	if (selection >= API_KEY_PROVIDERS.length) {
+	const options: PromptSelectOption<ApiKeyProviderInfo | "cancel">[] = API_KEY_PROVIDERS.map((provider) => ({
+		value: provider,
+		label: provider.label,
+		hint: provider.id === "__custom__"
+			? "Ollama, vLLM, LM Studio, proxies"
+			: provider.envVar ?? provider.id,
+	}));
+	options.push({ value: "cancel", label: "Cancel" });
+
+	const defaultProvider = API_KEY_PROVIDERS.find((provider) => provider.id === "openai") ?? API_KEY_PROVIDERS[0];
+	const selection = await promptSelect("Choose an API-key provider:", options, defaultProvider);
+	if (selection === "cancel") {
 		return undefined;
 	}
-	return API_KEY_PROVIDERS[selection];
+	return selection;
 }
 
 type CustomProviderSetup = {
@@ -656,22 +671,22 @@ export function printModelList(settingsPath: string, authPath: string): void {
 
 export async function authenticateModelProvider(authPath: string, settingsPath?: string): Promise<boolean> {
 	const choices = [
-		"API key (OpenAI, Anthropic, Google, custom provider, ...)",
-		"OAuth login (ChatGPT Plus/Pro, Claude Pro/Max, Copilot, ...)",
+		"OAuth login (recommended: ChatGPT Plus/Pro, Claude Pro/Max, Copilot, ...)",
+		"API key or custom provider (OpenAI, Anthropic, Google, local/self-hosted, ...)",
 		"Cancel",
 	];
 	const selection = await promptChoice("How do you want to authenticate?", choices, 0);
 
 	if (selection === 0) {
+		return loginModelProvider(authPath, undefined, settingsPath);
+	}
+
+	if (selection === 1) {
 		const configured = await configureApiKeyProvider(authPath);
 		if (configured) {
 			maybeSetRecommendedDefaultModel(settingsPath, authPath);
 		}
 		return configured;
-	}
-
-	if (selection === 1) {
-		return loginModelProvider(authPath, undefined, settingsPath);
 	}
 
 	printInfo("Authentication cancelled.");
@@ -788,20 +803,20 @@ export async function runModelSetup(settingsPath: string, authPath: string): Pro
 
 	while (status.availableModels.length === 0) {
 		const choices = [
-			"API key (OpenAI, Anthropic, ZAI, Kimi, MiniMax, ...)",
-			"OAuth login (ChatGPT Plus/Pro, Claude Pro/Max, Copilot, ...)",
+			"OAuth login (recommended: ChatGPT Plus/Pro, Claude Pro/Max, Copilot, ...)",
+			"API key or custom provider (OpenAI, Anthropic, ZAI, Kimi, MiniMax, ...)",
 			"Cancel",
 		];
 		const selection = await promptChoice("Choose how to configure model access:", choices, 0);
 		if (selection === 0) {
-			const configured = await configureApiKeyProvider(authPath);
-			if (!configured) {
+			const loggedIn = await loginModelProvider(authPath, undefined, settingsPath);
+			if (!loggedIn) {
 				status = collectModelStatus(settingsPath, authPath);
 				continue;
 			}
 		} else if (selection === 1) {
-			const loggedIn = await loginModelProvider(authPath, undefined, settingsPath);
-			if (!loggedIn) {
+			const configured = await configureApiKeyProvider(authPath);
+			if (!configured) {
 				status = collectModelStatus(settingsPath, authPath);
 				continue;
 			}

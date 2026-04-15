@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resolveInitialPrompt } from "../src/cli.js";
+import { resolveInitialPrompt, shouldRunInteractiveSetup } from "../src/cli.js";
 import { buildModelStatusSnapshotFromRecords, chooseRecommendedModel } from "../src/model/catalog.js";
 import { resolveModelProviderForCommand, setDefaultModelSpec } from "../src/model/commands.js";
 
@@ -118,10 +118,63 @@ test("chooseRecommendedModel prefers MiniMax M2.7 over highspeed when that is th
 });
 
 test("resolveInitialPrompt maps top-level research commands to Pi slash workflows", () => {
-	const workflows = new Set(["lit", "watch", "jobs", "deepresearch"]);
+	const workflows = new Set([
+		"lit",
+		"watch",
+		"jobs",
+		"deepresearch",
+		"review",
+		"audit",
+		"replicate",
+		"compare",
+		"draft",
+		"autoresearch",
+		"summarize",
+		"log",
+	]);
 	assert.equal(resolveInitialPrompt("lit", ["tool-using", "agents"], undefined, workflows), "/lit tool-using agents");
 	assert.equal(resolveInitialPrompt("watch", ["openai"], undefined, workflows), "/watch openai");
 	assert.equal(resolveInitialPrompt("jobs", [], undefined, workflows), "/jobs");
+	assert.equal(resolveInitialPrompt("deepresearch", ["scaling", "laws"], undefined, workflows), "/deepresearch scaling laws");
+	assert.equal(resolveInitialPrompt("review", ["paper.md"], undefined, workflows), "/review paper.md");
+	assert.equal(resolveInitialPrompt("audit", ["2401.12345"], undefined, workflows), "/audit 2401.12345");
+	assert.equal(resolveInitialPrompt("replicate", ["chain-of-thought"], undefined, workflows), "/replicate chain-of-thought");
+	assert.equal(resolveInitialPrompt("compare", ["tool", "use"], undefined, workflows), "/compare tool use");
+	assert.equal(resolveInitialPrompt("draft", ["mechanistic", "interp"], undefined, workflows), "/draft mechanistic interp");
+	assert.equal(resolveInitialPrompt("autoresearch", ["gsm8k"], undefined, workflows), "/autoresearch gsm8k");
+	assert.equal(resolveInitialPrompt("summarize", ["README.md"], undefined, workflows), "/summarize README.md");
+	assert.equal(resolveInitialPrompt("log", [], undefined, workflows), "/log");
 	assert.equal(resolveInitialPrompt("chat", ["hello"], undefined, workflows), "hello");
 	assert.equal(resolveInitialPrompt("unknown", ["topic"], undefined, workflows), "unknown topic");
+});
+
+test("shouldRunInteractiveSetup triggers on first run when no default model is configured", () => {
+	const authPath = createAuthPath({});
+
+	assert.equal(shouldRunInteractiveSetup(undefined, undefined, true, authPath), true);
+});
+
+test("shouldRunInteractiveSetup triggers when the configured default model is unavailable", () => {
+	const authPath = createAuthPath({
+		openai: { type: "api_key", key: "openai-test-key" },
+	});
+
+	assert.equal(shouldRunInteractiveSetup(undefined, "anthropic/claude-opus-4-6", true, authPath), true);
+});
+
+test("shouldRunInteractiveSetup skips onboarding when the configured default model is available", () => {
+	const authPath = createAuthPath({
+		openai: { type: "api_key", key: "openai-test-key" },
+	});
+
+	assert.equal(shouldRunInteractiveSetup(undefined, "openai/gpt-5.4", true, authPath), false);
+});
+
+test("shouldRunInteractiveSetup skips onboarding for explicit model overrides or non-interactive terminals", () => {
+	const authPath = createAuthPath({
+		openai: { type: "api_key", key: "openai-test-key" },
+	});
+
+	assert.equal(shouldRunInteractiveSetup("openai/gpt-5.4", undefined, true, authPath), false);
+	assert.equal(shouldRunInteractiveSetup(undefined, undefined, false, authPath), false);
 });

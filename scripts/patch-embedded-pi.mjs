@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { delimiter, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FEYNMAN_LOGO_HTML } from "../logo.mjs";
 import { patchAlphaHubAuthSource } from "./lib/alpha-hub-auth-patch.mjs";
@@ -88,7 +88,30 @@ const piMemoryPath = resolve(workspaceRoot, "@samfp", "pi-memory", "src", "index
 const settingsPath = resolve(appRoot, ".feynman", "settings.json");
 const workspaceDir = resolve(appRoot, ".feynman", "npm");
 const workspacePackageJsonPath = resolve(workspaceDir, "package.json");
+const workspaceManifestPath = resolve(workspaceDir, ".runtime-manifest.json");
 const workspaceArchivePath = resolve(appRoot, ".feynman", "runtime-workspace.tgz");
+const globalNodeModulesRoot = resolve(feynmanNpmPrefix, "lib", "node_modules");
+const PRUNE_VERSION = 3;
+const NATIVE_PACKAGE_SPECS = new Set([
+	"@kaiserlich-dev/pi-session-search",
+	"@samfp/pi-memory",
+]);
+const FILTERED_INSTALL_OUTPUT_PATTERNS = [
+	/npm warn deprecated node-domexception@1\.0\.0/i,
+	/npm notice/i,
+	/^(added|removed|changed) \d+ packages?( in .+)?$/i,
+	/^\d+ packages are looking for funding$/i,
+	/^run `npm fund` for details$/i,
+];
+
+function arraysMatch(left, right) {
+	return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function supportsNativePackageSources(version = process.versions.node) {
+	const [major = "0"] = version.replace(/^v/, "").split(".");
+	return (Number.parseInt(major, 10) || 0) <= 24;
+}
 
 function createInstallCommand(packageManager, packageSpecs) {
 	switch (packageManager) {
@@ -100,6 +123,7 @@ function createInstallCommand(packageManager, packageSpecs) {
 				"--prefer-offline",
 				"--no-audit",
 				"--no-fund",
+				"--legacy-peer-deps",
 				"--loglevel",
 				"error",
 				...packageSpecs,
@@ -142,12 +166,24 @@ function installWorkspacePackages(packageSpecs) {
 
 	const result = spawnSync(packageManager, createInstallCommand(packageManager, packageSpecs), {
 		cwd: workspaceDir,
-		stdio: ["ignore", "ignore", "pipe"],
+		stdio: ["ignore", "pipe", "pipe"],
 		timeout: 300000,
+		env: {
+			...process.env,
+			PATH: getPathWithCurrentNode(process.env.PATH),
+		},
 	});
 
+	for (const stream of [result.stdout, result.stderr]) {
+		if (!stream?.length) continue;
+		for (const line of stream.toString().split(/\r?\n/)) {
+			if (!line.trim()) continue;
+			if (FILTERED_INSTALL_OUTPUT_PATTERNS.some((pattern) => pattern.test(line.trim()))) continue;
+			process.stderr.write(`${line}\n`);
+		}
+	}
+
 	if (result.status !== 0) {
-		if (result.stderr?.length) process.stderr.write(result.stderr);
 		process.stderr.write(`[feynman] ${packageManager} failed while setting up bundled packages.\n`);
 		return false;
 	}
@@ -158,6 +194,102 @@ function installWorkspacePackages(packageSpecs) {
 function parsePackageName(spec) {
 	const match = spec.match(/^(@?[^@]+(?:\/[^@]+)?)(?:@.+)?$/);
 	return match?.[1] ?? spec;
+}
+
+function filterUnsupportedPackageSpecs(packageSpecs) {
+	if (supportsNativePackageSources()) return packageSpecs;
+	return packageSpecs.filter((spec) => !NATIVE_PACKAGE_SPECS.has(parsePackageName(spec)));
+}
+
+function workspaceContainsPackages(packageSpecs) {
+	return packageSpecs.every((spec) => existsSync(resolve(workspaceRoot, parsePackageName(spec))));
+}
+
+function workspaceMatchesRuntime(packageSpecs) {
+	if (!existsSync(workspaceManifestPath)) return false;
+
+	try {
+		const manifest = JSON.parse(readFileSync(workspaceManifestPath, "utf8"));
+		if (!Array.isArray(manifest.packageSpecs)) {
+			return false;
+		}
+		if (!arraysMatch(manifest.packageSpecs, packageSpecs)) {
+			if (!(workspaceContainsPackages(packageSpecs) && packageSpecs.every((spec) => manifest.packageSpecs.includes(spec)))) {
+				return false;
+			}
+		}
+		if (!supportsNativePackageSources() && workspaceContainsPackages(packageSpecs)) {
+			return true;
+		}
+		if (
+			manifest.nodeAbi !== process.versions.modules ||
+			manifest.platform !== process.platform ||
+			manifest.arch !== process.arch ||
+			manifest.pruneVersion !== PRUNE_VERSION
+		) {
+			return false;
+		}
+
+		return packageSpecs.every((spec) => existsSync(resolve(workspaceRoot, parsePackageName(spec))));
+	} catch {
+		return false;
+	}
+}
+
+function writeWorkspaceManifest(packageSpecs) {
+	writeFileSync(
+		workspaceManifestPath,
+		JSON.stringify(
+			{
+				packageSpecs,
+				generatedAt: new Date().toISOString(),
+				nodeAbi: process.versions.modules,
+				nodeVersion: process.version,
+				platform: process.platform,
+				arch: process.arch,
+				pruneVersion: PRUNE_VERSION,
+			},
+			null,
+			2,
+		) + "\n",
+		"utf8",
+	);
+}
+
+function ensureParentDir(path) {
+	mkdirSync(dirname(path), { recursive: true });
+}
+
+function linkPointsTo(linkPath, targetPath) {
+	try {
+		if (!lstatSync(linkPath).isSymbolicLink()) return false;
+		return resolve(dirname(linkPath), readlinkSync(linkPath)) === targetPath;
+	} catch {
+		return false;
+	}
+}
+
+function ensureBundledPackageLinks(packageSpecs) {
+	if (!workspaceMatchesRuntime(packageSpecs)) return;
+
+	for (const spec of packageSpecs) {
+		const packageName = parsePackageName(spec);
+		const sourcePath = resolve(workspaceRoot, packageName);
+		const targetPath = resolve(globalNodeModulesRoot, packageName);
+		if (!existsSync(sourcePath)) continue;
+		if (linkPointsTo(targetPath, sourcePath)) continue;
+		try {
+			if (lstatSync(targetPath).isSymbolicLink()) {
+				rmSync(targetPath, { force: true });
+			}
+		} catch {}
+		if (existsSync(targetPath)) continue;
+
+		ensureParentDir(targetPath);
+		try {
+			symlinkSync(sourcePath, targetPath, process.platform === "win32" ? "junction" : "dir");
+		} catch {}
+	}
 }
 
 function restorePackagedWorkspace(packageSpecs) {
@@ -185,30 +317,38 @@ function restorePackagedWorkspace(packageSpecs) {
 	return false;
 }
 
-function refreshPackagedWorkspace(packageSpecs) {
-	return installWorkspacePackages(packageSpecs);
-}
-
 function resolveExecutable(name, fallbackPaths = []) {
 	for (const candidate of fallbackPaths) {
 		if (existsSync(candidate)) return candidate;
 	}
 
 	const isWindows = process.platform === "win32";
+	const env = {
+		...process.env,
+		PATH: process.env.PATH ?? "",
+	};
 	const result = isWindows
 		? spawnSync("cmd", ["/c", `where ${name}`], {
 				encoding: "utf8",
 				stdio: ["ignore", "pipe", "ignore"],
+				env,
 			})
-		: spawnSync("sh", ["-lc", `command -v ${name}`], {
+		: spawnSync("sh", ["-c", `command -v ${name}`], {
 				encoding: "utf8",
 				stdio: ["ignore", "pipe", "ignore"],
+				env,
 			});
 	if (result.status === 0) {
 		const resolved = result.stdout.trim().split(/\r?\n/)[0];
 		if (resolved) return resolved;
 	}
 	return null;
+}
+
+function getPathWithCurrentNode(pathValue = process.env.PATH ?? "") {
+	const nodeDir = dirname(process.execPath);
+	const parts = pathValue.split(delimiter).filter(Boolean);
+	return parts.includes(nodeDir) ? pathValue : `${nodeDir}${delimiter}${pathValue}`;
 }
 
 function ensurePackageWorkspace() {
@@ -220,10 +360,17 @@ function ensurePackageWorkspace() {
 				.filter((v) => typeof v === "string" && v.startsWith("npm:"))
 				.map((v) => v.slice(4))
 		: [];
+	const supportedPackageSpecs = filterUnsupportedPackageSpecs(packageSpecs);
 
-	if (packageSpecs.length === 0) return;
-	if (existsSync(resolve(workspaceRoot, parsePackageName(packageSpecs[0])))) return;
-	if (restorePackagedWorkspace(packageSpecs) && refreshPackagedWorkspace(packageSpecs)) return;
+	if (supportedPackageSpecs.length === 0) return;
+	if (workspaceMatchesRuntime(supportedPackageSpecs)) {
+		ensureBundledPackageLinks(supportedPackageSpecs);
+		return;
+	}
+	if (restorePackagedWorkspace(packageSpecs) && workspaceMatchesRuntime(supportedPackageSpecs)) {
+		ensureBundledPackageLinks(supportedPackageSpecs);
+		return;
+	}
 
 	mkdirSync(workspaceDir, { recursive: true });
 	writeFileSync(
@@ -240,7 +387,7 @@ function ensurePackageWorkspace() {
 		process.stderr.write(`\r${frames[frame++ % frames.length]} setting up feynman... ${elapsed}s`);
 	}, 80);
 
-	const result = installWorkspacePackages(packageSpecs);
+	const result = installWorkspacePackages(supportedPackageSpecs);
 
 	clearInterval(spinner);
 	const elapsed = Math.round((Date.now() - start) / 1000);
@@ -248,7 +395,9 @@ function ensurePackageWorkspace() {
 	if (!result) {
 		process.stderr.write(`\r✗ setup failed (${elapsed}s)\n`);
 	} else {
-		process.stderr.write(`\r✓ feynman ready (${elapsed}s)\n`);
+		process.stderr.write("\r\x1b[2K");
+		writeWorkspaceManifest(supportedPackageSpecs);
+		ensureBundledPackageLinks(supportedPackageSpecs);
 	}
 }
 
