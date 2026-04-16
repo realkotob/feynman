@@ -53,6 +53,8 @@ Also save the plan with `memory_remember` (type: `fact`, key: `deepresearch.<slu
 
 Present the plan to the user. If this is an unattended or one-shot run, continue automatically. If the user is actively interacting in the terminal, give them a brief chance to request plan changes before proceeding.
 
+Do not stop after planning. If live search, subagents, web access, alphaXiv, or any other capability is unavailable, continue in degraded mode and write a durable blocked/partial report that records exactly which capabilities failed.
+
 ## 2. Scale decision
 
 | Query type | Execution |
@@ -104,6 +106,13 @@ Update the plan artifact (`outputs/.plans/<slug>.md`) task ledger, verification 
 When the work spans multiple rounds, also append a concise chronological entry to `CHANGELOG.md` covering what changed, what was verified, what remains blocked, and the next recommended step.
 
 Most topics need 1-2 rounds. Stop when additional rounds would not materially change conclusions.
+
+If no researcher files can be produced because tools, subagents, or network access failed, create `outputs/.drafts/<slug>-draft.md` yourself as a blocked report with:
+- what was requested,
+- which capabilities failed,
+- what evidence was and was not gathered,
+- a proposed source-gathering plan,
+- no invented sources or results.
 
 ## 5. Write the report
 
@@ -190,6 +199,7 @@ Before you stop, verify on disk that all of these exist:
 - `outputs/<slug>.provenance.md` or `papers/<slug>.provenance.md` provenance sidecar
 
 Do not stop at `<slug>-brief.md` alone. If the cited brief exists but the promoted final output or provenance sidecar does not, create them before responding.
+If full verification could not be completed, still create the final deliverable and provenance sidecar with `Verification: BLOCKED` or `PASS WITH NOTES` and list the missing checks. Never end with only an explanation in chat.
 
 ## Background execution
 

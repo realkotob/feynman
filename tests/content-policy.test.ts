@@ -57,3 +57,15 @@ test("research writing prompts forbid fabricated results and unproven figures", 
 	assert.match(draftPrompt, /placeholder or proposed experimental plan/i);
 	assert.match(draftPrompt, /source-backed quantitative data/i);
 });
+
+test("deepresearch workflow requires durable artifacts even when blocked", () => {
+	const systemPrompt = readFileSync(join(repoRoot, ".feynman", "SYSTEM.md"), "utf8");
+	const deepResearchPrompt = readFileSync(join(repoRoot, "prompts", "deepresearch.md"), "utf8");
+
+	assert.match(systemPrompt, /Do not claim you are only a static model/i);
+	assert.match(systemPrompt, /write the requested durable artifact/i);
+	assert.match(deepResearchPrompt, /Do not stop after planning/i);
+	assert.match(deepResearchPrompt, /degraded mode/i);
+	assert.match(deepResearchPrompt, /Verification: BLOCKED/i);
+	assert.match(deepResearchPrompt, /Never end with only an explanation in chat/i);
+});
