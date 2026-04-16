@@ -31,7 +31,7 @@ test("bundled prompts and skills do not contain blocked promotional product cont
 	}
 });
 
-test("draft workflow explicitly forbids fabricated results and unproven figures", () => {
+test("research writing prompts forbid fabricated results and unproven figures", () => {
 	const draftPrompt = readFileSync(join(repoRoot, "prompts", "draft.md"), "utf8");
 	const systemPrompt = readFileSync(join(repoRoot, ".feynman", "SYSTEM.md"), "utf8");
 	const writerPrompt = readFileSync(join(repoRoot, ".feynman", "agents", "writer.md"), "utf8");
@@ -39,7 +39,6 @@ test("draft workflow explicitly forbids fabricated results and unproven figures"
 
 	for (const [label, content] of [
 		["system prompt", systemPrompt],
-		["draft prompt", draftPrompt],
 		["writer prompt", writerPrompt],
 		["verifier prompt", verifierPrompt],
 	] as const) {
@@ -47,4 +46,8 @@ test("draft workflow explicitly forbids fabricated results and unproven figures"
 		assert.match(content, /(figure|chart|image|table)/i, `${label} must cover visual/table provenance`);
 		assert.match(content, /(provenance|source|artifact|script|raw)/i, `${label} must require traceable support`);
 	}
+
+	assert.match(draftPrompt, /system prompt's provenance rules/i);
+	assert.match(draftPrompt, /placeholder or proposed experimental plan/i);
+	assert.match(draftPrompt, /source-backed quantitative data/i);
 });
