@@ -260,6 +260,23 @@ function ensureParentDir(path) {
 	mkdirSync(dirname(path), { recursive: true });
 }
 
+function packageDependencyExists(packagePath, globalNodeModulesRoot, dependency) {
+	return existsSync(resolve(packagePath, "node_modules", dependency)) ||
+		existsSync(resolve(globalNodeModulesRoot, dependency));
+}
+
+function installedPackageLooksUsable(packagePath, globalNodeModulesRoot) {
+	if (!existsSync(resolve(packagePath, "package.json"))) return false;
+	try {
+		const pkg = JSON.parse(readFileSync(resolve(packagePath, "package.json"), "utf8"));
+		return Object.keys(pkg.dependencies ?? {}).every((dependency) =>
+			packageDependencyExists(packagePath, globalNodeModulesRoot, dependency)
+		);
+	} catch {
+		return false;
+	}
+}
+
 function linkPointsTo(linkPath, targetPath) {
 	try {
 		if (!lstatSync(linkPath).isSymbolicLink()) return false;
@@ -281,6 +298,8 @@ function ensureBundledPackageLinks(packageSpecs) {
 		try {
 			if (lstatSync(targetPath).isSymbolicLink()) {
 				rmSync(targetPath, { force: true });
+			} else if (!installedPackageLooksUsable(targetPath, globalNodeModulesRoot)) {
+				rmSync(targetPath, { recursive: true, force: true });
 			}
 		} catch {}
 		if (existsSync(targetPath)) continue;

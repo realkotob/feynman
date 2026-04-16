@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { resolveInitialPrompt, shouldRunInteractiveSetup } from "../src/cli.js";
 import { buildModelStatusSnapshotFromRecords, chooseRecommendedModel } from "../src/model/catalog.js";
 import { resolveModelProviderForCommand, setDefaultModelSpec } from "../src/model/commands.js";
+import { createModelRegistry } from "../src/model/registry.js";
 
 function createAuthPath(contents: Record<string, unknown>): string {
 	const root = mkdtempSync(join(tmpdir(), "feynman-auth-"));
@@ -24,6 +25,17 @@ test("chooseRecommendedModel prefers the strongest authenticated research model"
 	const recommendation = chooseRecommendedModel(authPath);
 
 	assert.equal(recommendation?.spec, "anthropic/claude-opus-4-6");
+});
+
+test("createModelRegistry overlays new Anthropic Opus model before upstream Pi updates", () => {
+	const authPath = createAuthPath({
+		anthropic: { type: "api_key", key: "anthropic-test-key" },
+	});
+
+	const registry = createModelRegistry(authPath);
+
+	assert.ok(registry.find("anthropic", "claude-opus-4-7"));
+	assert.equal(registry.getAvailable().some((model) => model.provider === "anthropic" && model.id === "claude-opus-4-7"), true);
 });
 
 test("setDefaultModelSpec accepts a unique bare model id from authenticated models", () => {

@@ -6,13 +6,17 @@ import { join, resolve } from "node:path";
 
 import { installPackageSources, seedBundledWorkspacePackages, updateConfiguredPackages } from "../src/pi/package-ops.js";
 
-function createBundledWorkspace(appRoot: string, packageNames: string[]): void {
+function createBundledWorkspace(
+	appRoot: string,
+	packageNames: string[],
+	dependenciesByPackage: Record<string, Record<string, string>> = {},
+): void {
 	for (const packageName of packageNames) {
 		const packageDir = resolve(appRoot, ".feynman", "npm", "node_modules", packageName);
 		mkdirSync(packageDir, { recursive: true });
 		writeFileSync(
 			join(packageDir, "package.json"),
-			JSON.stringify({ name: packageName, version: "1.0.0" }, null, 2) + "\n",
+			JSON.stringify({ name: packageName, version: "1.0.0", dependencies: dependenciesByPackage[packageName] }, null, 2) + "\n",
 			"utf8",
 		);
 	}
@@ -74,6 +78,33 @@ test("seedBundledWorkspacePackages preserves existing installed packages", () =>
 	assert.deepEqual(seeded, []);
 	assert.equal(readFileSync(resolve(existingPackageDir, "package.json"), "utf8"), '{"name":"pi-subagents","version":"user"}\n');
 	assert.equal(lstatSync(existingPackageDir).isSymbolicLink(), false);
+});
+
+test("seedBundledWorkspacePackages repairs broken existing bundled packages", () => {
+	const appRoot = mkdtempSync(join(tmpdir(), "feynman-bundle-"));
+	const homeRoot = mkdtempSync(join(tmpdir(), "feynman-home-"));
+	const agentDir = resolve(homeRoot, "agent");
+	const existingPackageDir = resolve(homeRoot, "npm-global", "lib", "node_modules", "pi-markdown-preview");
+
+	mkdirSync(agentDir, { recursive: true });
+	createBundledWorkspace(appRoot, ["pi-markdown-preview", "puppeteer-core"], {
+		"pi-markdown-preview": { "puppeteer-core": "^24.0.0" },
+	});
+	mkdirSync(existingPackageDir, { recursive: true });
+	writeFileSync(
+		resolve(existingPackageDir, "package.json"),
+		JSON.stringify({ name: "pi-markdown-preview", version: "broken", dependencies: { "puppeteer-core": "^24.0.0" } }) + "\n",
+		"utf8",
+	);
+
+	const seeded = seedBundledWorkspacePackages(agentDir, appRoot, ["npm:pi-markdown-preview"]);
+
+	assert.deepEqual(seeded, ["npm:pi-markdown-preview"]);
+	assert.equal(lstatSync(existingPackageDir).isSymbolicLink(), true);
+	assert.equal(
+		readFileSync(resolve(existingPackageDir, "package.json"), "utf8").includes('"version": "1.0.0"'),
+		true,
+	);
 });
 
 test("installPackageSources filters noisy npm chatter but preserves meaningful output", async () => {

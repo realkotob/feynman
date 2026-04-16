@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { cpSync, existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 
@@ -423,6 +423,47 @@ function linkDirectory(linkPath: string, targetPath: string): void {
 	}
 }
 
+function packageNameToPath(root: string, packageName: string): string {
+	return resolve(root, packageName);
+}
+
+function packageDependencyExists(packagePath: string, globalNodeModulesRoot: string, dependency: string): boolean {
+	return existsSync(packageNameToPath(resolve(packagePath, "node_modules"), dependency)) ||
+		existsSync(packageNameToPath(globalNodeModulesRoot, dependency));
+}
+
+function installedPackageLooksUsable(packagePath: string, globalNodeModulesRoot: string): boolean {
+	if (!existsSync(resolve(packagePath, "package.json"))) {
+		return false;
+	}
+
+	try {
+		const pkg = JSON.parse(readFileSync(resolve(packagePath, "package.json"), "utf8")) as {
+			dependencies?: Record<string, string>;
+		};
+		const dependencies = Object.keys(pkg.dependencies ?? {});
+		return dependencies.every((dependency) => packageDependencyExists(packagePath, globalNodeModulesRoot, dependency));
+	} catch {
+		return false;
+	}
+}
+
+function replaceBrokenPackageWithBundledCopy(targetPath: string, bundledPackagePath: string, globalNodeModulesRoot: string): boolean {
+	if (!existsSync(targetPath)) {
+		return false;
+	}
+	if (pathsMatchSymlinkTarget(targetPath, bundledPackagePath)) {
+		return false;
+	}
+	if (installedPackageLooksUsable(targetPath, globalNodeModulesRoot)) {
+		return false;
+	}
+
+	rmSync(targetPath, { recursive: true, force: true });
+	linkDirectory(targetPath, bundledPackagePath);
+	return true;
+}
+
 export function seedBundledWorkspacePackages(
 	agentDir: string,
 	appRoot: string,
@@ -446,6 +487,10 @@ export function seedBundledWorkspacePackages(
 		if (!existsSync(bundledPackagePath)) continue;
 
 		const targetPath = resolve(globalNodeModulesRoot, parsed.name);
+		if (replaceBrokenPackageWithBundledCopy(targetPath, bundledPackagePath, globalNodeModulesRoot)) {
+			seeded.push(source);
+			continue;
+		}
 		if (!existsSync(targetPath)) {
 			linkDirectory(targetPath, bundledPackagePath);
 			seeded.push(source);
