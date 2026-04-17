@@ -558,6 +558,7 @@ export async function main(): Promise<void> {
 		normalizeFeynmanSettings(feynmanSettingsPath, bundledSettingsPath, thinkingLevel, feynmanAuthPath);
 	}
 
+	const workflowCommandNames = new Set(readPromptSpecs(appRoot).filter((s) => s.topLevelCli).map((s) => s.name));
 	await launchPiChat({
 		appRoot,
 		workingDir,
@@ -568,6 +569,6 @@ export async function main(): Promise<void> {
 		thinkingLevel,
 		explicitModelSpec,
 		oneShotPrompt: values.prompt,
-		initialPrompt: resolveInitialPrompt(command, rest, values.prompt, new Set(readPromptSpecs(appRoot).filter((s) => s.topLevelCli).map((s) => s.name))),
+		initialPrompt: resolveInitialPrompt(command, rest, values.prompt, workflowCommandNames),
 	});
 }

@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -6,6 +7,8 @@ import { stripPiSubagentBuiltinModelSource } from "./lib/pi-subagents-patch.mjs"
 
 const appRoot = resolve(import.meta.dirname, "..");
 const settingsPath = resolve(appRoot, ".feynman", "settings.json");
+const packageJsonPath = resolve(appRoot, "package.json");
+const packageLockPath = resolve(appRoot, "package-lock.json");
 const feynmanDir = resolve(appRoot, ".feynman");
 const workspaceDir = resolve(appRoot, ".feynman", "npm");
 const workspaceNodeModulesDir = resolve(workspaceDir, "node_modules");
@@ -13,16 +16,29 @@ const manifestPath = resolve(workspaceDir, ".runtime-manifest.json");
 const workspacePackageJsonPath = resolve(workspaceDir, "package.json");
 const workspaceArchivePath = resolve(feynmanDir, "runtime-workspace.tgz");
 const PRUNE_VERSION = 4;
+const PINNED_RUNTIME_PACKAGES = [
+	"@mariozechner/pi-agent-core",
+	"@mariozechner/pi-ai",
+	"@mariozechner/pi-coding-agent",
+	"@mariozechner/pi-tui",
+];
 
 function readPackageSpecs() {
 	const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
-	if (!Array.isArray(settings.packages)) {
-		return [];
+	const packageSpecs = Array.isArray(settings.packages)
+		? settings.packages
+			.filter((value) => typeof value === "string" && value.startsWith("npm:"))
+			.map((value) => value.slice(4))
+		: [];
+
+	for (const packageName of PINNED_RUNTIME_PACKAGES) {
+		const version = readLockedPackageVersion(packageName);
+		if (version) {
+			packageSpecs.push(`${packageName}@${version}`);
+		}
 	}
 
-	return settings.packages
-		.filter((value) => typeof value === "string" && value.startsWith("npm:"))
-		.map((value) => value.slice(4));
+	return Array.from(new Set(packageSpecs));
 }
 
 function parsePackageName(spec) {
@@ -30,8 +46,39 @@ function parsePackageName(spec) {
 	return match?.[1] ?? spec;
 }
 
+function readLockedPackageVersion(packageName) {
+	if (!existsSync(packageLockPath)) {
+		return undefined;
+	}
+	try {
+		const lockfile = JSON.parse(readFileSync(packageLockPath, "utf8"));
+		const entry = lockfile.packages?.[`node_modules/${packageName}`];
+		return typeof entry?.version === "string" ? entry.version : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function arraysMatch(left, right) {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function hashFile(path) {
+	if (!existsSync(path)) {
+		return null;
+	}
+	return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+function getRuntimeInputHash() {
+	const hash = createHash("sha256");
+	for (const path of [packageJsonPath, packageLockPath, settingsPath]) {
+		hash.update(path);
+		hash.update("\0");
+		hash.update(hashFile(path) ?? "missing");
+		hash.update("\0");
+	}
+	return hash.digest("hex");
 }
 
 function workspaceIsCurrent(packageSpecs) {
@@ -42,6 +89,9 @@ function workspaceIsCurrent(packageSpecs) {
 	try {
 		const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 		if (!Array.isArray(manifest.packageSpecs) || !arraysMatch(manifest.packageSpecs, packageSpecs)) {
+			return false;
+		}
+		if (manifest.runtimeInputHash !== getRuntimeInputHash()) {
 			return false;
 		}
 		if (
@@ -97,8 +147,8 @@ function prepareWorkspace(packageSpecs) {
 	const result = spawnSync(
 		process.env.npm_execpath ? process.execPath : "npm",
 		process.env.npm_execpath
-			? [process.env.npm_execpath, "install", "--prefer-offline", "--no-audit", "--no-fund", "--no-dry-run", "--loglevel", "error", "--prefix", workspaceDir, ...packageSpecs]
-			: ["install", "--prefer-offline", "--no-audit", "--no-fund", "--no-dry-run", "--loglevel", "error", "--prefix", workspaceDir, ...packageSpecs],
+			? [process.env.npm_execpath, "install", "--prefer-offline", "--no-audit", "--no-fund", "--no-dry-run", "--legacy-peer-deps", "--loglevel", "error", "--prefix", workspaceDir, ...packageSpecs]
+			: ["install", "--prefer-offline", "--no-audit", "--no-fund", "--no-dry-run", "--legacy-peer-deps", "--loglevel", "error", "--prefix", workspaceDir, ...packageSpecs],
 		{ stdio: "inherit", env: childNpmInstallEnv() },
 	);
 	if (result.status !== 0) {
@@ -110,15 +160,16 @@ function writeManifest(packageSpecs) {
 	writeFileSync(
 		manifestPath,
 		JSON.stringify(
-				{
-					packageSpecs,
-					generatedAt: new Date().toISOString(),
-					nodeAbi: process.versions.modules,
-					nodeVersion: process.version,
-					platform: process.platform,
-					arch: process.arch,
-					pruneVersion: PRUNE_VERSION,
-				},
+			{
+				packageSpecs,
+				runtimeInputHash: getRuntimeInputHash(),
+				generatedAt: new Date().toISOString(),
+				nodeAbi: process.versions.modules,
+				nodeVersion: process.version,
+				platform: process.platform,
+				arch: process.arch,
+				pruneVersion: PRUNE_VERSION,
+			},
 			null,
 			2,
 		) + "\n",

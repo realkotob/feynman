@@ -65,6 +65,8 @@ test("deepresearch workflow requires durable artifacts even when blocked", () =>
 	assert.match(systemPrompt, /Do not claim you are only a static model/i);
 	assert.match(systemPrompt, /write the requested durable artifact/i);
 	assert.match(deepResearchPrompt, /Do not stop after planning/i);
+	assert.match(deepResearchPrompt, /not a request to explain or implement/i);
+	assert.match(deepResearchPrompt, /Do not answer by describing the protocol/i);
 	assert.match(deepResearchPrompt, /degraded mode/i);
 	assert.match(deepResearchPrompt, /Verification: BLOCKED/i);
 	assert.match(deepResearchPrompt, /Never end with only an explanation in chat/i);
