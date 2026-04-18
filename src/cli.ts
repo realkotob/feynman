@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -11,12 +11,21 @@ import {
 	login as loginAlpha,
 	logout as logoutAlpha,
 } from "@companion-ai/alpha-hub/lib";
-import { DefaultPackageManager, SettingsManager } from "@mariozechner/pi-coding-agent";
+import { SettingsManager } from "@mariozechner/pi-coding-agent";
 
 import { syncBundledAssets } from "./bootstrap/sync.js";
 import { ensureFeynmanHome, getDefaultSessionDir, getFeynmanAgentDir, getFeynmanHome } from "./config/paths.js";
 import { launchPiChat } from "./pi/launch.js";
-import { CORE_PACKAGE_SOURCES, getOptionalPackagePresetSources, listOptionalPackagePresets } from "./pi/package-presets.js";
+import { installPackageSources, updateConfiguredPackages } from "./pi/package-ops.js";
+import { MAX_NATIVE_PACKAGE_NODE_MAJOR } from "./pi/package-presets.js";
+import {
+	CORE_PACKAGE_SOURCES,
+	getOptionalPackagePresetSources,
+	isOptionalPackagePresetSupported,
+	listOptionalPackagePresetInstallTargets,
+	listOptionalPackagePresets,
+	normalizeOptionalPackagePresetName,
+} from "./pi/package-presets.js";
 import { normalizeFeynmanSettings, normalizeThinkingLevel, parseModelSpec } from "./pi/settings.js";
 import { applyFeynmanPackageManagerEnv } from "./pi/runtime.js";
 import { getConfiguredServiceTier, normalizeServiceTier, setConfiguredServiceTier } from "./model/service-tier.js";
@@ -28,7 +37,9 @@ import {
 	printModelList,
 	setDefaultModelSpec,
 } from "./model/commands.js";
-import { printSearchStatus } from "./search/commands.js";
+import { buildModelStatusSnapshotFromRecords, getAvailableModelRecords, getSupportedModelRecords } from "./model/catalog.js";
+import { clearSearchConfig, printSearchStatus, setSearchProvider } from "./search/commands.js";
+import type { PiWebSearchProvider } from "./pi/web-access.js";
 import { runDoctor, runStatus } from "./setup/doctor.js";
 import { setupPreviewDependencies } from "./setup/preview.js";
 import { runSetup } from "./setup/setup.js";
@@ -129,7 +140,7 @@ async function handleModelCommand(subcommand: string | undefined, args: string[]
 
 	if (subcommand === "login") {
 		if (args[0]) {
-			// Specific provider given - use OAuth login directly
+			// Specific provider given - resolve OAuth vs API-key setup automatically
 			await loginModelProvider(feynmanAuthPath, args[0], feynmanSettingsPath);
 		} else {
 			// No provider specified - show auth method choice
@@ -146,7 +157,7 @@ async function handleModelCommand(subcommand: string | undefined, args: string[]
 	if (subcommand === "set") {
 		const spec = args[0];
 		if (!spec) {
-			throw new Error("Usage: feynman model set <provider/model>");
+			throw new Error("Usage: feynman model set <provider/model|provider:model>");
 		}
 		setDefaultModelSpec(feynmanSettingsPath, feynmanAuthPath, spec);
 		return;
@@ -179,27 +190,30 @@ async function handleModelCommand(subcommand: string | undefined, args: string[]
 }
 
 async function handleUpdateCommand(workingDir: string, feynmanAgentDir: string, source?: string): Promise<void> {
-	applyFeynmanPackageManagerEnv(feynmanAgentDir);
-	const settingsManager = SettingsManager.create(workingDir, feynmanAgentDir);
-	const packageManager = new DefaultPackageManager({
-		cwd: workingDir,
-		agentDir: feynmanAgentDir,
-		settingsManager,
-	});
-
-	packageManager.setProgressCallback((event) => {
-		if (event.type === "start") {
-			console.log(`Updating ${event.source}...`);
-		} else if (event.type === "complete") {
-			console.log(`Updated ${event.source}`);
-		} else if (event.type === "error") {
-			console.error(`Failed to update ${event.source}: ${event.message ?? "unknown error"}`);
+	try {
+		const result = await updateConfiguredPackages(workingDir, feynmanAgentDir, source);
+		if (result.updated.length === 0) {
+			console.log("All packages up to date.");
+			return;
 		}
-	});
 
-	await packageManager.update(source);
-	await settingsManager.flush();
-	console.log("All packages up to date.");
+		for (const updatedSource of result.updated) {
+			console.log(`Updated ${updatedSource}`);
+		}
+		for (const skippedSource of result.skipped) {
+			console.log(`Skipped ${skippedSource} on Node ${process.versions.node} (native packages are only supported through Node ${MAX_NATIVE_PACKAGE_NODE_MAJOR}.x).`);
+		}
+		console.log("All packages up to date.");
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (message.includes("No supported package manager found")) {
+			console.log("No package manager is available for live package updates.");
+			console.log("If you installed the standalone app, rerun the installer to get newer bundled packages.");
+			return;
+		}
+
+		throw error;
+	}
 }
 
 async function handlePackagesCommand(subcommand: string | undefined, args: string[], workingDir: string, feynmanAgentDir: string): Promise<void> {
@@ -221,11 +235,17 @@ async function handlePackagesCommand(subcommand: string | undefined, args: strin
 			printInfo(source);
 		}
 		printSection("Optional");
-		for (const preset of listOptionalPackagePresets()) {
+		const optionalPresets = listOptionalPackagePresets();
+		if (optionalPresets.length === 0) {
+			printInfo(`No optional package presets are available on ${process.platform}.`);
+			printInfo("Core packages already include memory and session search.");
+			return;
+		}
+		for (const preset of optionalPresets) {
 			const installed = preset.sources.every((source) => configuredSources.has(source));
 			printInfo(`${preset.name}${installed ? " (installed)" : ""}  ${preset.description}`);
 		}
-		printInfo("Install with: feynman packages install <preset>");
+		printInfo(`Install with: feynman packages install <${listOptionalPackagePresetInstallTargets().join("|")}>`);
 		return;
 	}
 
@@ -235,43 +255,93 @@ async function handlePackagesCommand(subcommand: string | undefined, args: strin
 
 	const target = args[0];
 	if (!target) {
-		throw new Error("Usage: feynman packages install <generative-ui|memory|session-search|all-extras>");
+		const installTargets = listOptionalPackagePresetInstallTargets();
+		if (installTargets.length === 0) {
+			throw new Error(`No optional package presets are available on ${process.platform}. Core packages already include memory and session search.`);
+		}
+		throw new Error(`Usage: feynman packages install <${installTargets.join("|")}>`);
 	}
 
 	const sources = getOptionalPackagePresetSources(target);
 	if (!sources) {
+		const normalizedPreset = normalizeOptionalPackagePresetName(target);
+		if (normalizedPreset === "all-extras") {
+			console.log(`No optional package presets are available on ${process.platform}.`);
+			console.log("Core packages already include memory and session search.");
+			return;
+		}
+		if (normalizedPreset && !isOptionalPackagePresetSupported(normalizedPreset)) {
+			console.log(`${normalizedPreset} is not available on ${process.platform}.`);
+			if (normalizedPreset === "generative-ui") {
+				console.log("The upstream pi-generative-ui package currently supports macOS only.");
+			}
+			return;
+		}
+		if (target === "memory" || target === "session-search") {
+			console.log(`${target} is installed by default as a core package.`);
+			return;
+		}
 		throw new Error(`Unknown package preset: ${target}`);
 	}
 
-	const packageManager = new DefaultPackageManager({
-		cwd: workingDir,
-		agentDir: feynmanAgentDir,
-		settingsManager,
-	});
-	packageManager.setProgressCallback((event) => {
-		if (event.type === "start") {
-			console.log(`Installing ${event.source}...`);
-		} else if (event.type === "complete") {
-			console.log(`Installed ${event.source}`);
-		} else if (event.type === "error") {
-			console.error(`Failed to install ${event.source}: ${event.message ?? "unknown error"}`);
-		}
-	});
+	const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+	const isStandaloneBundle = !existsSync(resolve(appRoot, ".feynman", "runtime-workspace.tgz")) && existsSync(resolve(appRoot, ".feynman", "npm"));
+	if (target === "generative-ui" && process.platform === "darwin" && isStandaloneBundle) {
+		console.log("The generative-ui preset is currently unavailable in the standalone macOS bundle.");
+		console.log("Its native glimpseui dependency fails to compile reliably in that environment.");
+		console.log("If you need generative-ui, install Feynman through npm instead of the standalone bundle.");
+		return;
+	}
 
+	const pendingSources = sources.filter((source) => !configuredSources.has(source));
 	for (const source of sources) {
 		if (configuredSources.has(source)) {
 			console.log(`${source} already installed`);
-			continue;
 		}
-		await packageManager.install(source);
 	}
-	await settingsManager.flush();
-	console.log("Optional packages installed.");
+
+	if (pendingSources.length === 0) {
+		console.log("Optional packages installed.");
+		return;
+	}
+
+	try {
+		const result = await installPackageSources(workingDir, feynmanAgentDir, pendingSources, { persist: true });
+		for (const skippedSource of result.skipped) {
+			console.log(`Skipped ${skippedSource} on Node ${process.versions.node} (native packages are only supported through Node ${MAX_NATIVE_PACKAGE_NODE_MAJOR}.x).`);
+		}
+		await settingsManager.flush();
+		console.log("Optional packages installed.");
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (message.includes("No supported package manager found")) {
+			console.log("No package manager is available for optional package installs.");
+			console.log("Install npm, pnpm, or bun, or rerun the standalone installer for bundled package updates.");
+			return;
+		}
+
+		throw error;
+	}
 }
 
-function handleSearchCommand(subcommand: string | undefined): void {
+function handleSearchCommand(subcommand: string | undefined, args: string[]): void {
 	if (!subcommand || subcommand === "status") {
 		printSearchStatus();
+		return;
+	}
+
+	if (subcommand === "set") {
+		const provider = args[0] as PiWebSearchProvider | undefined;
+		const validProviders: PiWebSearchProvider[] = ["auto", "perplexity", "exa", "gemini"];
+		if (!provider || !validProviders.includes(provider)) {
+			throw new Error("Usage: feynman search set <auto|perplexity|exa|gemini> [api-key]");
+		}
+		setSearchProvider(provider, args[1]);
+		return;
+	}
+
+	if (subcommand === "clear") {
+		clearSearchConfig();
 		return;
 	}
 
@@ -310,6 +380,40 @@ export function resolveInitialPrompt(
 	return undefined;
 }
 
+export function resolvePiPromptOptions(
+	command: string | undefined,
+	rest: string[],
+	oneShotPrompt: string | undefined,
+	workflowCommands: Set<string>,
+): { oneShotPrompt?: string; initialPrompt?: string } {
+	const resolvedPrompt = resolveInitialPrompt(command, rest, oneShotPrompt, workflowCommands);
+	if (!resolvedPrompt) {
+		return {};
+	}
+	if (oneShotPrompt) {
+		return { oneShotPrompt: resolvedPrompt };
+	}
+	return { initialPrompt: resolvedPrompt };
+}
+
+export function shouldRunInteractiveSetup(
+	explicitModelSpec: string | undefined,
+	currentModelSpec: string | undefined,
+	isInteractiveTerminal: boolean,
+	authPath: string,
+): boolean {
+	if (explicitModelSpec || !isInteractiveTerminal) {
+		return false;
+	}
+
+	const status = buildModelStatusSnapshotFromRecords(
+		getSupportedModelRecords(authPath),
+		getAvailableModelRecords(authPath),
+		currentModelSpec,
+	);
+	return !status.currentValid;
+}
+
 export async function main(): Promise<void> {
 	const here = dirname(fileURLToPath(import.meta.url));
 	const appRoot = resolve(here, "..");
@@ -332,6 +436,7 @@ export async function main(): Promise<void> {
 			"alpha-login": { type: "boolean" },
 			"alpha-logout": { type: "boolean" },
 			"alpha-status": { type: "boolean" },
+			mode: { type: "string" },
 			model: { type: "string" },
 			"new-session": { type: "boolean" },
 			prompt: { type: "string" },
@@ -442,7 +547,7 @@ export async function main(): Promise<void> {
 	}
 
 	if (command === "search") {
-		handleSearchCommand(rest[0]);
+		handleSearchCommand(rest[0], rest.slice(1));
 		return;
 	}
 
@@ -463,6 +568,10 @@ export async function main(): Promise<void> {
 
 	const explicitModelSpec = values.model ?? process.env.FEYNMAN_MODEL;
 	const explicitServiceTier = normalizeServiceTier(values["service-tier"] ?? process.env.FEYNMAN_SERVICE_TIER);
+	const mode = values.mode;
+	if (mode !== undefined && mode !== "text" && mode !== "json" && mode !== "rpc") {
+		throw new Error("Unknown mode. Use text, json, or rpc.");
+	}
 	if ((values["service-tier"] ?? process.env.FEYNMAN_SERVICE_TIER) && !explicitServiceTier) {
 		throw new Error("Unknown service tier. Use auto, default, flex, priority, or standard_only.");
 	}
@@ -477,7 +586,13 @@ export async function main(): Promise<void> {
 		}
 	}
 
-	if (!explicitModelSpec && !getCurrentModelSpec(feynmanSettingsPath) && process.stdin.isTTY && process.stdout.isTTY) {
+	const currentModelSpec = getCurrentModelSpec(feynmanSettingsPath);
+	if (shouldRunInteractiveSetup(
+		explicitModelSpec,
+		currentModelSpec,
+		Boolean(process.stdin.isTTY && process.stdout.isTTY),
+		feynmanAuthPath,
+	)) {
 		await runSetup({
 			settingsPath: feynmanSettingsPath,
 			bundledSettingsPath,
@@ -493,15 +608,17 @@ export async function main(): Promise<void> {
 		normalizeFeynmanSettings(feynmanSettingsPath, bundledSettingsPath, thinkingLevel, feynmanAuthPath);
 	}
 
+	const workflowCommandNames = new Set(readPromptSpecs(appRoot).filter((s) => s.topLevelCli).map((s) => s.name));
+	const promptOptions = resolvePiPromptOptions(command, rest, values.prompt, workflowCommandNames);
 	await launchPiChat({
 		appRoot,
 		workingDir,
 		sessionDir,
 		feynmanAgentDir,
 		feynmanVersion,
+		mode,
 		thinkingLevel,
 		explicitModelSpec,
-		oneShotPrompt: values.prompt,
-		initialPrompt: resolveInitialPrompt(command, rest, values.prompt, new Set(readPromptSpecs(appRoot).filter((s) => s.topLevelCli).map((s) => s.name))),
+		...promptOptions,
 	});
 }

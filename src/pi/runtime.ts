@@ -15,6 +15,7 @@ export type PiRuntimeOptions = {
 	sessionDir: string;
 	feynmanAgentDir: string;
 	feynmanVersion?: string;
+	mode?: "text" | "json" | "rpc";
 	thinkingLevel?: string;
 	explicitModelSpec?: string;
 	oneShotPrompt?: string;
@@ -37,6 +38,9 @@ export function resolvePiPaths(appRoot: string) {
 	return {
 		piPackageRoot: resolve(appRoot, "node_modules", "@mariozechner", "pi-coding-agent"),
 		piCliPath: resolve(appRoot, "node_modules", "@mariozechner", "pi-coding-agent", "dist", "cli.js"),
+		piMainPath: resolve(appRoot, "node_modules", "@mariozechner", "pi-coding-agent", "dist", "main.js"),
+		piCliWrapperPath: resolve(appRoot, "dist", "pi", "pi-cli-wrapper.js"),
+		piCliWrapperSourcePath: resolve(appRoot, "src", "pi", "pi-cli-wrapper.ts"),
 		promisePolyfillPath: resolve(appRoot, "dist", "system", "promise-polyfill.js"),
 		promisePolyfillSourcePath: resolve(appRoot, "src", "system", "promise-polyfill.ts"),
 		tsxLoaderPath: resolve(appRoot, "node_modules", "tsx", "dist", "loader.mjs"),
@@ -57,6 +61,11 @@ export function validatePiInstallation(appRoot: string): string[] {
 	const missing: string[] = [];
 
 	if (!existsSync(paths.piCliPath)) missing.push(paths.piCliPath);
+	if (!existsSync(paths.piMainPath)) missing.push(paths.piMainPath);
+	if (!existsSync(paths.piCliWrapperPath)) {
+		const hasDevWrapper = existsSync(paths.piCliWrapperSourcePath) && existsSync(paths.tsxLoaderPath);
+		if (!hasDevWrapper) missing.push(paths.piCliWrapperPath);
+	}
 	if (!existsSync(paths.promisePolyfillPath)) {
 		// Dev fallback: allow running from source without `dist/` build artifacts.
 		const hasDevPolyfill = existsSync(paths.promisePolyfillSourcePath) && existsSync(paths.tsxLoaderPath);
@@ -83,6 +92,9 @@ export function buildPiArgs(options: PiRuntimeOptions): string[] {
 		args.push("--system-prompt", readFileSync(paths.systemPromptPath, "utf8"));
 	}
 
+	if (options.mode) {
+		args.push("--mode", options.mode);
+	}
 	if (options.explicitModelSpec) {
 		args.push("--model", options.explicitModelSpec);
 	}
@@ -117,8 +129,11 @@ export function buildPiEnv(options: PiRuntimeOptions): NodeJS.ProcessEnv {
 		FEYNMAN_WEB_SEARCH_CONFIG: feynmanWebSearchConfigPath,
 		FEYNMAN_NODE_EXECUTABLE: process.execPath,
 		FEYNMAN_BIN_PATH: resolve(options.appRoot, "bin", "feynman.js"),
+		FEYNMAN_PI_CLI_PATH: paths.piCliPath,
 		FEYNMAN_NPM_PREFIX: feynmanNpmPrefixPath,
 		// Ensure the Pi child process uses Feynman's agent dir for auth/models/settings.
+		// Patched Pi uses FEYNMAN_CODING_AGENT_DIR; upstream Pi uses PI_CODING_AGENT_DIR.
+		FEYNMAN_CODING_AGENT_DIR: options.feynmanAgentDir,
 		PI_CODING_AGENT_DIR: options.feynmanAgentDir,
 		PANDOC_PATH: process.env.PANDOC_PATH ?? resolveExecutable("pandoc", PANDOC_FALLBACK_PATHS),
 		PI_HARDWARE_CURSOR: process.env.PI_HARDWARE_CURSOR ?? "1",

@@ -1,14 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { delimiter, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FEYNMAN_LOGO_HTML } from "../logo.mjs";
+import { patchAlphaHubAuthSource } from "./lib/alpha-hub-auth-patch.mjs";
 import { patchPiExtensionLoaderSource } from "./lib/pi-extension-loader-patch.mjs";
 import { patchPiGoogleLegacySchemaSource } from "./lib/pi-google-legacy-schema-patch.mjs";
 import { PI_WEB_ACCESS_PATCH_TARGETS, patchPiWebAccessSource } from "./lib/pi-web-access-patch.mjs";
-import { PI_SUBAGENTS_PATCH_TARGETS, patchPiSubagentsSource } from "./lib/pi-subagents-patch.mjs";
+import { PI_SUBAGENTS_PATCH_TARGETS, patchPiSubagentsSource, stripPiSubagentBuiltinModelSource } from "./lib/pi-subagents-patch.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(here, "..");
@@ -74,7 +75,6 @@ const workspaceExtensionLoaderPath = resolve(
 	"extensions",
 	"loader.js",
 );
-const vendorOverrideRoot = resolve(appRoot, ".feynman", "vendor-overrides");
 const piSubagentsRoot = resolve(workspaceRoot, "pi-subagents");
 const webAccessPath = resolve(workspaceRoot, "pi-web-access", "index.ts");
 const sessionSearchIndexerPath = resolve(
@@ -88,7 +88,30 @@ const piMemoryPath = resolve(workspaceRoot, "@samfp", "pi-memory", "src", "index
 const settingsPath = resolve(appRoot, ".feynman", "settings.json");
 const workspaceDir = resolve(appRoot, ".feynman", "npm");
 const workspacePackageJsonPath = resolve(workspaceDir, "package.json");
+const workspaceManifestPath = resolve(workspaceDir, ".runtime-manifest.json");
 const workspaceArchivePath = resolve(appRoot, ".feynman", "runtime-workspace.tgz");
+const globalNodeModulesRoot = resolve(feynmanNpmPrefix, "lib", "node_modules");
+const PRUNE_VERSION = 3;
+const NATIVE_PACKAGE_SPECS = new Set([
+	"@kaiserlich-dev/pi-session-search",
+	"@samfp/pi-memory",
+]);
+const FILTERED_INSTALL_OUTPUT_PATTERNS = [
+	/npm warn deprecated node-domexception@1\.0\.0/i,
+	/npm notice/i,
+	/^(added|removed|changed) \d+ packages?( in .+)?$/i,
+	/^\d+ packages are looking for funding$/i,
+	/^run `npm fund` for details$/i,
+];
+
+function arraysMatch(left, right) {
+	return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function supportsNativePackageSources(version = process.versions.node) {
+	const [major = "0"] = version.replace(/^v/, "").split(".");
+	return (Number.parseInt(major, 10) || 0) <= 24;
+}
 
 function createInstallCommand(packageManager, packageSpecs) {
 	switch (packageManager) {
@@ -100,6 +123,7 @@ function createInstallCommand(packageManager, packageSpecs) {
 				"--prefer-offline",
 				"--no-audit",
 				"--no-fund",
+				"--legacy-peer-deps",
 				"--loglevel",
 				"error",
 				...packageSpecs,
@@ -142,12 +166,24 @@ function installWorkspacePackages(packageSpecs) {
 
 	const result = spawnSync(packageManager, createInstallCommand(packageManager, packageSpecs), {
 		cwd: workspaceDir,
-		stdio: ["ignore", "ignore", "pipe"],
+		stdio: ["ignore", "pipe", "pipe"],
 		timeout: 300000,
+		env: {
+			...process.env,
+			PATH: getPathWithCurrentNode(process.env.PATH),
+		},
 	});
 
+	for (const stream of [result.stdout, result.stderr]) {
+		if (!stream?.length) continue;
+		for (const line of stream.toString().split(/\r?\n/)) {
+			if (!line.trim()) continue;
+			if (FILTERED_INSTALL_OUTPUT_PATTERNS.some((pattern) => pattern.test(line.trim()))) continue;
+			process.stderr.write(`${line}\n`);
+		}
+	}
+
 	if (result.status !== 0) {
-		if (result.stderr?.length) process.stderr.write(result.stderr);
 		process.stderr.write(`[feynman] ${packageManager} failed while setting up bundled packages.\n`);
 		return false;
 	}
@@ -158,6 +194,146 @@ function installWorkspacePackages(packageSpecs) {
 function parsePackageName(spec) {
 	const match = spec.match(/^(@?[^@]+(?:\/[^@]+)?)(?:@.+)?$/);
 	return match?.[1] ?? spec;
+}
+
+function filterUnsupportedPackageSpecs(packageSpecs) {
+	if (supportsNativePackageSources()) return packageSpecs;
+	return packageSpecs.filter((spec) => !NATIVE_PACKAGE_SPECS.has(parsePackageName(spec)));
+}
+
+function workspaceContainsPackages(packageSpecs) {
+	return packageSpecs.every((spec) => existsSync(resolve(workspaceRoot, parsePackageName(spec))));
+}
+
+function workspaceMatchesRuntime(packageSpecs) {
+	if (!existsSync(workspaceManifestPath)) return false;
+
+	try {
+		const manifest = JSON.parse(readFileSync(workspaceManifestPath, "utf8"));
+		if (!Array.isArray(manifest.packageSpecs)) {
+			return false;
+		}
+		if (!arraysMatch(manifest.packageSpecs, packageSpecs)) {
+			if (!(workspaceContainsPackages(packageSpecs) && packageSpecs.every((spec) => manifest.packageSpecs.includes(spec)))) {
+				return false;
+			}
+		}
+		if (!supportsNativePackageSources() && workspaceContainsPackages(packageSpecs)) {
+			return true;
+		}
+		if (
+			manifest.nodeAbi !== process.versions.modules ||
+			manifest.platform !== process.platform ||
+			manifest.arch !== process.arch ||
+			manifest.pruneVersion !== PRUNE_VERSION
+		) {
+			return false;
+		}
+
+		return packageSpecs.every((spec) => existsSync(resolve(workspaceRoot, parsePackageName(spec))));
+	} catch {
+		return false;
+	}
+}
+
+function writeWorkspaceManifest(packageSpecs) {
+	writeFileSync(
+		workspaceManifestPath,
+		JSON.stringify(
+			{
+				packageSpecs,
+				generatedAt: new Date().toISOString(),
+				nodeAbi: process.versions.modules,
+				nodeVersion: process.version,
+				platform: process.platform,
+				arch: process.arch,
+				pruneVersion: PRUNE_VERSION,
+			},
+			null,
+			2,
+		) + "\n",
+		"utf8",
+	);
+}
+
+function ensureParentDir(path) {
+	mkdirSync(dirname(path), { recursive: true });
+}
+
+function packageDependencyExists(packagePath, globalNodeModulesRoot, dependency) {
+	return existsSync(resolve(packagePath, "node_modules", dependency)) ||
+		existsSync(resolve(globalNodeModulesRoot, dependency));
+}
+
+function installedPackageLooksUsable(packagePath, globalNodeModulesRoot) {
+	if (!existsSync(resolve(packagePath, "package.json"))) return false;
+	try {
+		const pkg = JSON.parse(readFileSync(resolve(packagePath, "package.json"), "utf8"));
+		return Object.keys(pkg.dependencies ?? {}).every((dependency) =>
+			packageDependencyExists(packagePath, globalNodeModulesRoot, dependency)
+		);
+	} catch {
+		return false;
+	}
+}
+
+function linkPointsTo(linkPath, targetPath) {
+	try {
+		if (!lstatSync(linkPath).isSymbolicLink()) return false;
+		return resolve(dirname(linkPath), readlinkSync(linkPath)) === targetPath;
+	} catch {
+		return false;
+	}
+}
+
+function listWorkspacePackageNames(root) {
+	if (!existsSync(root)) return [];
+	const names = [];
+	for (const entry of readdirSync(root, { withFileTypes: true })) {
+		if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+		if (entry.name.startsWith(".")) continue;
+		if (entry.name.startsWith("@")) {
+			const scopeRoot = resolve(root, entry.name);
+			for (const scopedEntry of readdirSync(scopeRoot, { withFileTypes: true })) {
+				if (!scopedEntry.isDirectory() && !scopedEntry.isSymbolicLink()) continue;
+				names.push(`${entry.name}/${scopedEntry.name}`);
+			}
+			continue;
+		}
+		names.push(entry.name);
+	}
+	return names;
+}
+
+function linkBundledPackage(packageName) {
+	const sourcePath = resolve(workspaceRoot, packageName);
+	const targetPath = resolve(globalNodeModulesRoot, packageName);
+	if (!existsSync(sourcePath)) return false;
+	if (linkPointsTo(targetPath, sourcePath)) return false;
+	try {
+		if (lstatSync(targetPath).isSymbolicLink()) {
+			rmSync(targetPath, { force: true });
+		} else if (!installedPackageLooksUsable(targetPath, globalNodeModulesRoot)) {
+			rmSync(targetPath, { recursive: true, force: true });
+		}
+	} catch {}
+	if (existsSync(targetPath)) return false;
+
+	ensureParentDir(targetPath);
+	try {
+		symlinkSync(sourcePath, targetPath, process.platform === "win32" ? "junction" : "dir");
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function ensureBundledPackageLinks(packageSpecs) {
+	if (!workspaceMatchesRuntime(packageSpecs)) return;
+
+	for (const packageName of listWorkspacePackageNames(workspaceRoot)) {
+		linkBundledPackage(packageName);
+	}
 }
 
 function restorePackagedWorkspace(packageSpecs) {
@@ -185,24 +361,26 @@ function restorePackagedWorkspace(packageSpecs) {
 	return false;
 }
 
-function refreshPackagedWorkspace(packageSpecs) {
-	return installWorkspacePackages(packageSpecs);
-}
-
 function resolveExecutable(name, fallbackPaths = []) {
 	for (const candidate of fallbackPaths) {
 		if (existsSync(candidate)) return candidate;
 	}
 
 	const isWindows = process.platform === "win32";
+	const env = {
+		...process.env,
+		PATH: process.env.PATH ?? "",
+	};
 	const result = isWindows
 		? spawnSync("cmd", ["/c", `where ${name}`], {
 				encoding: "utf8",
 				stdio: ["ignore", "pipe", "ignore"],
+				env,
 			})
-		: spawnSync("sh", ["-lc", `command -v ${name}`], {
+		: spawnSync("sh", ["-c", `command -v ${name}`], {
 				encoding: "utf8",
 				stdio: ["ignore", "pipe", "ignore"],
+				env,
 			});
 	if (result.status === 0) {
 		const resolved = result.stdout.trim().split(/\r?\n/)[0];
@@ -211,16 +389,10 @@ function resolveExecutable(name, fallbackPaths = []) {
 	return null;
 }
 
-function syncVendorOverride(relativePath) {
-	const sourcePath = resolve(vendorOverrideRoot, relativePath);
-	const targetPath = resolve(workspaceRoot, relativePath);
-	if (!existsSync(sourcePath) || !existsSync(targetPath)) return;
-
-	const source = readFileSync(sourcePath, "utf8");
-	const current = readFileSync(targetPath, "utf8");
-	if (source !== current) {
-		writeFileSync(targetPath, source, "utf8");
-	}
+function getPathWithCurrentNode(pathValue = process.env.PATH ?? "") {
+	const nodeDir = dirname(process.execPath);
+	const parts = pathValue.split(delimiter).filter(Boolean);
+	return parts.includes(nodeDir) ? pathValue : `${nodeDir}${delimiter}${pathValue}`;
 }
 
 function ensurePackageWorkspace() {
@@ -232,10 +404,17 @@ function ensurePackageWorkspace() {
 				.filter((v) => typeof v === "string" && v.startsWith("npm:"))
 				.map((v) => v.slice(4))
 		: [];
+	const supportedPackageSpecs = filterUnsupportedPackageSpecs(packageSpecs);
 
-	if (packageSpecs.length === 0) return;
-	if (existsSync(resolve(workspaceRoot, parsePackageName(packageSpecs[0])))) return;
-	if (restorePackagedWorkspace(packageSpecs) && refreshPackagedWorkspace(packageSpecs)) return;
+	if (supportedPackageSpecs.length === 0) return;
+	if (workspaceMatchesRuntime(supportedPackageSpecs)) {
+		ensureBundledPackageLinks(supportedPackageSpecs);
+		return;
+	}
+	if (restorePackagedWorkspace(packageSpecs) && workspaceMatchesRuntime(supportedPackageSpecs)) {
+		ensureBundledPackageLinks(supportedPackageSpecs);
+		return;
+	}
 
 	mkdirSync(workspaceDir, { recursive: true });
 	writeFileSync(
@@ -252,7 +431,7 @@ function ensurePackageWorkspace() {
 		process.stderr.write(`\r${frames[frame++ % frames.length]} setting up feynman... ${elapsed}s`);
 	}, 80);
 
-	const result = installWorkspacePackages(packageSpecs);
+	const result = installWorkspacePackages(supportedPackageSpecs);
 
 	clearInterval(spinner);
 	const elapsed = Math.round((Date.now() - start) / 1000);
@@ -260,7 +439,9 @@ function ensurePackageWorkspace() {
 	if (!result) {
 		process.stderr.write(`\r✗ setup failed (${elapsed}s)\n`);
 	} else {
-		process.stderr.write(`\r✓ feynman ready (${elapsed}s)\n`);
+		process.stderr.write("\r\x1b[2K");
+		writeWorkspaceManifest(supportedPackageSpecs);
+		ensureBundledPackageLinks(supportedPackageSpecs);
 	}
 }
 
@@ -296,6 +477,19 @@ if (existsSync(piSubagentsRoot)) {
 		const patched = patchPiSubagentsSource(relativePath, source);
 		if (patched !== source) {
 			writeFileSync(entryPath, patched, "utf8");
+		}
+	}
+
+	const builtinAgentsRoot = resolve(piSubagentsRoot, "agents");
+	if (existsSync(builtinAgentsRoot)) {
+		for (const entry of readdirSync(builtinAgentsRoot, { withFileTypes: true })) {
+			if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+			const entryPath = resolve(builtinAgentsRoot, entry.name);
+			const source = readFileSync(entryPath, "utf8");
+			const patched = stripPiSubagentBuiltinModelSource(source);
+			if (patched !== source) {
+				writeFileSync(entryPath, patched, "utf8");
+			}
 		}
 	}
 }
@@ -571,16 +765,6 @@ if (editorPath && existsSync(editorPath)) {
 }
 
 if (existsSync(webAccessPath)) {
-	for (const relativePath of [
-		"pi-web-access/index.ts",
-		"pi-web-access/gemini-search.ts",
-		"pi-web-access/curator-page.ts",
-		"pi-web-access/curator-server.ts",
-		"pi-web-access/exa.ts",
-	]) {
-		syncVendorOverride(relativePath);
-	}
-
 	const source = readFileSync(webAccessPath, "utf8");
 	if (source.includes('pi.registerCommand("search",')) {
 		writeFileSync(
@@ -643,25 +827,11 @@ const alphaHubAuthPath = findPackageRoot("@companion-ai/alpha-hub")
 	: null;
 
 if (alphaHubAuthPath && existsSync(alphaHubAuthPath)) {
-	let source = readFileSync(alphaHubAuthPath, "utf8");
-	const oldSuccess = "'<html><body><h2>Logged in to Alpha Hub</h2><p>You can close this tab.</p></body></html>'";
-	const oldError = "'<html><body><h2>Login failed</h2><p>You can close this tab.</p></body></html>'";
-	const bodyAttr = `style="font-family:system-ui,sans-serif;text-align:center;padding-top:20vh;background:#050a08;color:#f0f5f2"`;
-	const logo = `<h1 style="font-family:monospace;font-size:48px;color:#34d399;margin:0">feynman</h1>`;
-	const newSuccess = `'<html><body ${bodyAttr}>${logo}<h2 style="color:#34d399;margin-top:16px">Logged in</h2><p style="color:#8aaa9a">You can close this tab.</p></body></html>'`;
-	const newError = `'<html><body ${bodyAttr}>${logo}<h2 style="color:#ef4444;margin-top:16px">Login failed</h2><p style="color:#8aaa9a">You can close this tab.</p></body></html>'`;
-	if (source.includes(oldSuccess)) {
-		source = source.replace(oldSuccess, newSuccess);
+	const source = readFileSync(alphaHubAuthPath, "utf8");
+	const patched = patchAlphaHubAuthSource(source);
+	if (patched !== source) {
+		writeFileSync(alphaHubAuthPath, patched, "utf8");
 	}
-	if (source.includes(oldError)) {
-		source = source.replace(oldError, newError);
-	}
-	const brokenWinOpen = "else if (plat === 'win32') execSync(`start \"${url}\"`);";
-	const fixedWinOpen = "else if (plat === 'win32') execSync(`cmd /c start \"\" \"${url}\"`);";
-	if (source.includes(brokenWinOpen)) {
-		source = source.replace(brokenWinOpen, fixedWinOpen);
-	}
-	writeFileSync(alphaHubAuthPath, source, "utf8");
 }
 
 if (existsSync(piMemoryPath)) {
