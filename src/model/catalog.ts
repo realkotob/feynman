@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+
+import { getEnvApiKey } from "@mariozechner/pi-ai";
+
 import { createModelRegistry } from "./registry.js";
 
 type ModelRecord = {
@@ -48,6 +52,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 	huggingface: "Hugging Face",
 	"amazon-bedrock": "Amazon Bedrock",
 	"azure-openai-responses": "Azure OpenAI Responses",
+	litellm: "LiteLLM Proxy",
 };
 
 const RESEARCH_MODEL_PREFERENCES = [
@@ -96,11 +101,11 @@ const RESEARCH_MODEL_PREFERENCES = [
 		reason: "good fallback when GLM is the available research model",
 	},
 	{
-		spec: "minimax/minimax-m2.7",
+		spec: "minimax/MiniMax-M2.7",
 		reason: "good fallback when MiniMax is the available research model",
 	},
 	{
-		spec: "minimax/minimax-m2.7-highspeed",
+		spec: "minimax/MiniMax-M2.7-highspeed",
 		reason: "good fallback when MiniMax is the available research model",
 	},
 	{
@@ -175,8 +180,10 @@ function sortProviders(left: ProviderStatus, right: ProviderStatus): number {
 }
 
 export function getAvailableModelRecords(authPath: string): ModelRecord[] {
+	const expiredOAuthProviders = readExpiredOAuthProviders(authPath);
 	return createModelRegistry(authPath)
 		.getAvailable()
+		.filter((model) => !expiredOAuthProviders.has(model.provider))
 		.map((model) => ({ provider: model.provider, id: model.id, name: model.name }));
 }
 
@@ -184,6 +191,22 @@ export function getSupportedModelRecords(authPath: string): ModelRecord[] {
 	return createModelRegistry(authPath)
 		.getAll()
 		.map((model) => ({ provider: model.provider, id: model.id, name: model.name }));
+}
+
+function readExpiredOAuthProviders(authPath: string): Set<string> {
+	const expired = new Set<string>();
+	try {
+		const parsed = JSON.parse(readFileSync(authPath, "utf8")) as Record<string, unknown>;
+		for (const [provider, credential] of Object.entries(parsed)) {
+			if (!credential || typeof credential !== "object") continue;
+			const typedCredential = credential as { type?: unknown; expires?: unknown };
+			if (typedCredential.type !== "oauth" || typeof typedCredential.expires !== "number") continue;
+			if (typedCredential.expires > Date.now()) continue;
+			if (getEnvApiKey(provider)) continue;
+			expired.add(provider);
+		}
+	} catch {}
+	return expired;
 }
 
 export function chooseRecommendedModel(authPath: string): { spec: string; reason: string } | undefined {

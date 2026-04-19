@@ -16,14 +16,30 @@ const PATCHED_CONFIG_EXPR =
 
 export function patchPiWebAccessSource(relativePath, source) {
 	let patched = source;
+	let changed = false;
 
-	if (patched.includes(PATCHED_CONFIG_EXPR)) {
-		return patched;
+	if (!patched.includes(PATCHED_CONFIG_EXPR)) {
+		patched = patched.split(LEGACY_CONFIG_EXPR).join(PATCHED_CONFIG_EXPR);
+		changed = patched !== source;
 	}
 
-	patched = patched.split(LEGACY_CONFIG_EXPR).join(PATCHED_CONFIG_EXPR);
+	if (relativePath === "index.ts") {
+		const workflowDefaultOriginal = 'const workflow = resolveWorkflow(params.workflow ?? configWorkflow, ctx?.hasUI !== false);';
+		const workflowDefaultPatched = 'const workflow = resolveWorkflow(params.workflow ?? configWorkflow ?? "none", ctx?.hasUI !== false);';
+		if (patched.includes(workflowDefaultOriginal)) {
+			patched = patched.replace(workflowDefaultOriginal, workflowDefaultPatched);
+			changed = true;
+		}
+		if (patched.includes('summary-review = open curator with auto summary draft (default)')) {
+			patched = patched.replace(
+				'summary-review = open curator with auto summary draft (default)',
+				'summary-review = open curator with auto summary draft (opt-in)',
+			);
+			changed = true;
+		}
+	}
 
-	if (relativePath === "index.ts" && patched !== source) {
+	if (relativePath === "index.ts" && changed) {
 		patched = patched.replace('import { join } from "node:path";', 'import { dirname, join } from "node:path";');
 		patched = patched.replace('const dir = join(homedir(), ".pi");', "const dir = dirname(WEB_SEARCH_CONFIG_PATH);");
 	}
