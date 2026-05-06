@@ -58,6 +58,7 @@ jobs:
       - verify
     if: needs.version-check.outputs.should_release == 'true' && needs.verify.result == 'success'
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       contents: read
       id-token: write
@@ -127,7 +128,7 @@ jobs:
       - version-check
       - publish-npm
       - build-native-bundles
-    if: needs.version-check.outputs.should_release == 'true' && needs.publish-npm.result == 'success' && needs.build-native-bundles.result == 'success'
+    if: needs.version-check.outputs.should_release == 'true' && needs.build-native-bundles.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
