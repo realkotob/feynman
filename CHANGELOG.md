@@ -15,6 +15,15 @@ Use this file to track chronology, not release notes. Keep entries short, factua
 - Blockers: ...
 - Next: ...
 
+### 2026-05-06 00:00 local — github-issues-150-153
+
+- Objective: Read the current Feynman GitHub issues and fix the open tracker items end to end.
+- Changed: Fixed bundled package seeding so copied runtime packages satisfy startup package checks; seeded bundles before interactive setup reports missing packages; restricted Feynman and sqlite-backed native package support to Node 22; moved release CI to Node 22; applied the biomedical literature review docs from PR #152; bumped the package to `0.2.41`.
+- Verified: Ran `npm test` with 151/151 passing, `npm run typecheck`, `npm run build`, `cd website && npm run build`, `node bin/feynman.js --version`, and a fresh `FEYNMAN_HOME` package-detection smoke that reported zero missing startup packages.
+- Failed / learned: The package seeding bug was not just missing files; copied bundled packages were present but not counted as seeded because the check only recognized symlink targets.
+- Blockers: Need commit/push, release CI observation, and tracker closure/comments.
+- Next: Push the fix, then close/comment issues #150, #151, #153 and PR #152.
+
 ### 2026-04-12 00:00 local — capital-france
 
 - Objective: Run an unattended deep-research workflow for the question "What is the capital of France?"

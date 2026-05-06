@@ -51,7 +51,7 @@ const CORE_PACKAGE_UPDATE_ALIASES: Record<string, (typeof CORE_PACKAGE_SOURCES)[
 	"pi-session-search": "npm:@kaiserlich-dev/pi-session-search",
 };
 
-export const MAX_NATIVE_PACKAGE_NODE_MAJOR = 24;
+export const MAX_NATIVE_PACKAGE_NODE_MAJOR = 22;
 
 export const OPTIONAL_PACKAGE_PRESETS = {
 	"generative-ui": {

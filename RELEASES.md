@@ -4,6 +4,25 @@ This file is the public release history for Feynman. Keep entries user-facing: w
 
 GitHub release notes are generated from the matching `## vX.Y.Z` section in this file.
 
+## v0.2.41 - 2026-05-06
+
+### Fixes
+
+- Fixed startup package seeding so copied bundled packages are treated as satisfied instead of falling through to repeated global npm installs.
+- Seeded bundled packages before interactive setup reports missing packages, avoiding unnecessary first-run package prompts when the standalone bundle already has the runtime workspace.
+- Restricted supported Node.js runtimes to Node 20.19.x through Node 22.x because sqlite-backed Pi packages such as session search are not reliable under Node 24.
+- Updated release CI to build, test, publish, and package native bundles with Node 22.
+
+### Documentation
+
+- Added research-only biomedical literature review guidance with PICO/PICOS framing, evidence-type separation, privacy boundaries, and non-clinical-advice wording.
+- Updated npm install docs to show the new supported Node engine range.
+
+### Validation
+
+- Full local tests passed: 151/151.
+- Typecheck and root build passed.
+
 ## v0.2.40 - 2026-04-19
 
 ### Fixes

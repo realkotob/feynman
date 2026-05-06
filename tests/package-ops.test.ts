@@ -1,10 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendFileSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { installPackageSources, seedBundledWorkspacePackages, updateConfiguredPackages } from "../src/pi/package-ops.js";
+import {
+	getMissingConfiguredPackages,
+	installPackageSources,
+	seedBundledWorkspacePackages,
+	updateConfiguredPackages,
+} from "../src/pi/package-ops.js";
 
 function createBundledWorkspace(
 	appRoot: string,
@@ -78,6 +83,40 @@ test("seedBundledWorkspacePackages preserves existing installed packages", () =>
 	assert.deepEqual(seeded, []);
 	assert.equal(readFileSync(resolve(existingPackageDir, "package.json"), "utf8"), '{"name":"pi-subagents","version":"user"}\n');
 	assert.equal(lstatSync(existingPackageDir).isSymbolicLink(), false);
+});
+
+test("seedBundledWorkspacePackages treats copied bundled packages as satisfied", () => {
+	const appRoot = mkdtempSync(join(tmpdir(), "feynman-bundle-"));
+	const homeRoot = mkdtempSync(join(tmpdir(), "feynman-home-"));
+	const agentDir = resolve(homeRoot, "agent");
+	const bundledPackageDir = resolve(appRoot, ".feynman", "npm", "node_modules", "pi-subagents");
+	const existingPackageDir = resolve(homeRoot, "npm-global", "lib", "node_modules", "pi-subagents");
+
+	mkdirSync(agentDir, { recursive: true });
+	createBundledWorkspace(appRoot, ["pi-subagents"]);
+	cpSync(bundledPackageDir, existingPackageDir, { recursive: true });
+
+	const seeded = seedBundledWorkspacePackages(agentDir, appRoot, ["npm:pi-subagents"]);
+
+	assert.deepEqual(seeded, ["npm:pi-subagents"]);
+	assert.equal(lstatSync(existingPackageDir).isSymbolicLink(), false);
+});
+
+test("getMissingConfiguredPackages seeds bundled packages before reporting missing startup packages", () => {
+	const appRoot = mkdtempSync(join(tmpdir(), "feynman-bundle-"));
+	const homeRoot = mkdtempSync(join(tmpdir(), "feynman-home-"));
+	const workingDir = resolve(homeRoot, "project");
+	const agentDir = resolve(homeRoot, "agent");
+	mkdirSync(workingDir, { recursive: true });
+	createBundledWorkspace(appRoot, ["pi-subagents"]);
+	writeSettings(agentDir, {
+		packages: ["npm:pi-subagents"],
+	});
+
+	const result = getMissingConfiguredPackages(workingDir, agentDir, appRoot);
+
+	assert.deepEqual(result.missing, []);
+	assert.equal(existsSync(resolve(homeRoot, "npm-global", "lib", "node_modules", "pi-subagents", "package.json")), true);
 });
 
 test("seedBundledWorkspacePackages repairs broken existing bundled packages", () => {
@@ -202,7 +241,7 @@ test("installPackageSources skips native packages on unsupported Node majors bef
 	});
 
 	const originalVersion = process.versions.node;
-	Object.defineProperty(process.versions, "node", { value: "25.0.0", configurable: true });
+	Object.defineProperty(process.versions, "node", { value: "24.0.0", configurable: true });
 	try {
 		const result = await installPackageSources(workingDir, agentDir, ["npm:@kaiserlich-dev/pi-session-search"]);
 		assert.deepEqual(result.installed, []);
@@ -377,7 +416,7 @@ test("updateConfiguredPackages skips native package updates on unsupported Node 
 		ok: true,
 		json: async () => ({ version: "2.0.0" }),
 	})) as unknown as typeof fetch;
-	Object.defineProperty(process.versions, "node", { value: "25.0.0", configurable: true });
+	Object.defineProperty(process.versions, "node", { value: "24.0.0", configurable: true });
 
 	try {
 		const result = await updateConfiguredPackages(workingDir, agentDir);

@@ -130,9 +130,10 @@ test("package update sources map core and optional aliases", () => {
 	assert.deepEqual(resolvePackageUpdateSources("custom-package"), ["custom-package"]);
 });
 
-test("supportsNativePackageSources disables sqlite-backed packages on Node 25+", () => {
-	assert.equal(supportsNativePackageSources("24.8.0"), true);
-	assert.equal(supportsNativePackageSources("25.0.0"), false);
+test("supportsNativePackageSources disables sqlite-backed packages on Node 23+", () => {
+	assert.equal(supportsNativePackageSources("22.12.0"), true);
+	assert.equal(supportsNativePackageSources("23.0.0"), false);
+	assert.equal(supportsNativePackageSources("24.8.0"), false);
 });
 
 test("normalizeFeynmanSettings prunes native core packages on unsupported Node majors", () => {
@@ -156,7 +157,7 @@ test("normalizeFeynmanSettings prunes native core packages on unsupported Node m
 	writeFileSync(authPath, "{}\n", "utf8");
 
 	const originalVersion = process.versions.node;
-	Object.defineProperty(process.versions, "node", { value: "25.0.0", configurable: true });
+	Object.defineProperty(process.versions, "node", { value: "24.0.0", configurable: true });
 	try {
 		normalizeFeynmanSettings(settingsPath, bundledSettingsPath, "medium", authPath);
 	} finally {

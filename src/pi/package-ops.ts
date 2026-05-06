@@ -272,8 +272,16 @@ export function getMissingConfiguredPackages(
 	agentDir: string,
 	appRoot: string,
 ): MissingConfiguredPackageSummary {
-	const { packageManager } = createPackageContext(workingDir, agentDir);
-	const configured = packageManager.listConfiguredPackages();
+	let { packageManager } = createPackageContext(workingDir, agentDir);
+	let configured = packageManager.listConfiguredPackages();
+	const missingUserNpmSources = configured
+		.filter((entry) => entry.scope === "user" && !entry.installedPath && parseNpmSource(entry.source))
+		.map((entry) => entry.source);
+	const bundledSeeded = seedBundledWorkspacePackages(agentDir, appRoot, missingUserNpmSources);
+	if (bundledSeeded.length > 0) {
+		({ packageManager } = createPackageContext(workingDir, agentDir));
+		configured = packageManager.listConfiguredPackages();
+	}
 
 	return configured.reduce<MissingConfiguredPackageSummary>(
 		(summary, entry) => {
@@ -554,6 +562,15 @@ function installedPackageLooksUsable(packagePath: string, globalNodeModulesRoot:
 	}
 }
 
+function packageJsonMatchesBundledCopy(packagePath: string, bundledPackagePath: string): boolean {
+	try {
+		return readFileSync(resolve(packagePath, "package.json"), "utf8") ===
+			readFileSync(resolve(bundledPackagePath, "package.json"), "utf8");
+	} catch {
+		return false;
+	}
+}
+
 function replaceBrokenPackageWithBundledCopy(targetPath: string, bundledPackagePath: string, globalNodeModulesRoot: string): boolean {
 	if (!existsSync(targetPath)) {
 		return false;
@@ -600,9 +617,12 @@ export function seedBundledWorkspacePackages(
 	const globalNodeModulesRoot = resolve(getFeynmanNpmPrefixPath(agentDir), "lib", "node_modules");
 	const seeded: string[] = [];
 	const bundledPackageNames = listBundledWorkspacePackageNames(bundledNodeModulesRoot);
+	const newlySeededPackageNames = new Set<string>();
 	pruneStaleBundledPackageLinks(globalNodeModulesRoot, bundledNodeModulesRoot, bundledPackageNames);
 	for (const packageName of bundledPackageNames) {
-		seedBundledPackage(globalNodeModulesRoot, bundledNodeModulesRoot, packageName);
+		if (seedBundledPackage(globalNodeModulesRoot, bundledNodeModulesRoot, packageName)) {
+			newlySeededPackageNames.add(packageName);
+		}
 	}
 
 	for (const source of sources) {
@@ -612,7 +632,12 @@ export function seedBundledWorkspacePackages(
 		if (!parsed) continue;
 
 		const targetPath = resolve(globalNodeModulesRoot, parsed.name);
-		if (pathsMatchSymlinkTarget(targetPath, resolve(bundledNodeModulesRoot, parsed.name))) {
+		const bundledPackagePath = resolve(bundledNodeModulesRoot, parsed.name);
+		if (
+			newlySeededPackageNames.has(parsed.name) ||
+			pathsMatchSymlinkTarget(targetPath, bundledPackagePath) ||
+			packageJsonMatchesBundledCopy(targetPath, bundledPackagePath)
+		) {
 			seeded.push(source);
 		}
 	}

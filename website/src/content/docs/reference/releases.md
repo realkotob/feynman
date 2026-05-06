@@ -7,6 +7,40 @@ order: 4
 
 This page summarizes what changed in recent Feynman releases. GitHub releases use the same version-specific notes from the repository `RELEASES.md` file.
 
+## v0.2.41 - 2026-05-06
+
+### Fixes
+
+- Fixed startup package seeding so copied bundled packages are treated as satisfied instead of falling through to repeated global npm installs.
+- Seeded bundled packages before interactive setup reports missing packages, avoiding unnecessary first-run package prompts when the standalone bundle already has the runtime workspace.
+- Restricted supported Node.js runtimes to Node 20.19.x through Node 22.x because sqlite-backed Pi packages such as session search are not reliable under Node 24.
+- Updated release CI to build, test, publish, and package native bundles with Node 22.
+
+### Documentation
+
+- Added research-only biomedical literature review guidance with PICO/PICOS framing, evidence-type separation, privacy boundaries, and non-clinical-advice wording.
+- Updated npm install docs to show the new supported Node engine range.
+
+### Validation
+
+- Full local tests passed: 151/151.
+- Typecheck and root build passed.
+
+## v0.2.40 - 2026-04-19
+
+### Fixes
+
+- Fixed local-model web-search failures where a model calls non-existent search aliases such as `google:search`; Feynman now maps those aliases to Pi's real `web_search` tool when it is available.
+- Granted the bundled researcher and verifier agents access to Pi web-access tools (`web_search`, `fetch_content`, and `get_search_content`) so their prompts and allowed tools match.
+- Made `feynman doctor` and `feynman search status` explicitly show when `web-search.json` has not been created and how to initialize it.
+- Stopped treating expired OAuth credentials as authenticated model availability, so `doctor`, `model list`, and onboarding guide users to re-login instead of failing later in chat.
+- Added a package-workspace setup lock so concurrent Feynman invocations do not race while restoring `.feynman/npm`.
+
+### Validation
+
+- Full local tests passed: 137/137.
+- Typecheck, build, vendored runtime regeneration, runtime archive inspection, sequential CLI smoke, and parallel CLI smoke passed.
+
 ## v0.2.39 - 2026-04-19
 
 ### Fixes
