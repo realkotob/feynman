@@ -80,6 +80,7 @@ function getRuntimeInputHash() {
 		packageLockPath,
 		settingsPath,
 		resolve(appRoot, "scripts", "lib", "pi-agent-core-patch.mjs"),
+		resolve(appRoot, "scripts", "lib", "pi-package-manager-patch.mjs"),
 		resolve(appRoot, "scripts", "lib", "pi-tui-patch.mjs"),
 		resolve(appRoot, "scripts", "lib", "pi-web-access-patch.mjs"),
 		resolve(appRoot, "scripts", "lib", "pi-subagents-patch.mjs"),

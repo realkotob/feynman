@@ -8,6 +8,7 @@ import { FEYNMAN_LOGO_HTML } from "../logo.mjs";
 import { patchAlphaHubAuthSource } from "./lib/alpha-hub-auth-patch.mjs";
 import { patchPiAgentCoreSource } from "./lib/pi-agent-core-patch.mjs";
 import { patchPiExtensionLoaderSource } from "./lib/pi-extension-loader-patch.mjs";
+import { patchPiPackageManagerSource } from "./lib/pi-package-manager-patch.mjs";
 import { patchPiTuiSource } from "./lib/pi-tui-patch.mjs";
 import { PI_WEB_ACCESS_PATCH_TARGETS, patchPiWebAccessSource } from "./lib/pi-web-access-patch.mjs";
 import { PI_SUBAGENTS_PATCH_TARGETS, patchPiSubagentsSource, stripPiSubagentBuiltinModelSource } from "./lib/pi-subagents-patch.mjs";
@@ -65,6 +66,7 @@ const bunCliPath = piPackageRoot ? resolve(piPackageRoot, "dist", "bun", "cli.js
 const interactiveModePath = piPackageRoot ? resolve(piPackageRoot, "dist", "modes", "interactive", "interactive-mode.js") : null;
 const interactiveThemePath = piPackageRoot ? resolve(piPackageRoot, "dist", "modes", "interactive", "theme", "theme.js") : null;
 const extensionLoaderPath = piPackageRoot ? resolve(piPackageRoot, "dist", "core", "extensions", "loader.js") : null;
+const packageManagerPath = piPackageRoot ? resolve(piPackageRoot, "dist", "core", "package-manager.js") : null;
 const agentLoopPath = piAgentCoreRoot ? resolve(piAgentCoreRoot, "dist", "agent-loop.js") : null;
 const tuiPath = piTuiRoot ? resolve(piTuiRoot, "dist", "tui.js") : null;
 const terminalPath = piTuiRoot ? resolve(piTuiRoot, "dist", "terminal.js") : null;
@@ -695,6 +697,14 @@ for (const loaderPath of [extensionLoaderPath, workspaceExtensionLoaderPath].fil
 	const patched = patchPiExtensionLoaderSource(source);
 	if (patched !== source) {
 		writeFileSync(loaderPath, patched, "utf8");
+	}
+}
+
+if (packageManagerPath && existsSync(packageManagerPath)) {
+	const source = readFileSync(packageManagerPath, "utf8");
+	const patched = patchPiPackageManagerSource(source);
+	if (patched !== source) {
+		writeFileSync(packageManagerPath, patched, "utf8");
 	}
 }
 

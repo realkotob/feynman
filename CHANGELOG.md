@@ -367,3 +367,12 @@ Use this file to track chronology, not release notes. Keep entries short, factua
 - Failed / learned: Historical changelog entries still mention earlier telemetry verification because those entries describe past runs; the first stale-link check ran before `feynman status` had finished, so it still saw old links until the newly installed startup pruning executed.
 - Blockers: None for source removal.
 - Next: Commit and push the validated cleanup.
+
+### 2026-05-05 22:17 PDT — rpc-package-sync-fix
+
+- Objective: Re-test the shipped issue fixes through the real installed/RPC path after discovering `v0.2.41` had not been exercised deeply enough.
+- Changed: Added an embedded Pi package-manager patch so runtime npm installs include `--legacy-peer-deps`; wired it into packaged runtime preparation; bumped Feynman to `v0.2.42`; documented the release.
+- Verified: Reproduced the `v0.2.41` RPC startup failure in the real release binary from the repo cwd: Pi attempted project package sync for `@aliou/pi-processes` and failed on peer dependency resolution before RPC could complete. After the patch, local `0.2.42` RPC accepted a JSONL `prompt`, streamed `Feynman RPC OK`, emitted `turn_end`, and emitted `agent_end`.
+- Failed / learned: Running `feynman --mode rpc "prompt"` is not a valid deep RPC smoke; the actual protocol requires JSON-line commands on stdin and keeping stdin open.
+- Blockers: Need push `v0.2.42`, wait for native release assets, then re-run the same RPC smoke against the released native asset before closing this loop.
+- Next: Commit, push, verify CI/native release, and test the released `v0.2.42` asset end to end.

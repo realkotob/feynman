@@ -7,6 +7,18 @@ order: 4
 
 This page summarizes what changed in recent Feynman releases. GitHub releases use the same version-specific notes from the repository `RELEASES.md` file.
 
+## v0.2.42 - 2026-05-06
+
+### Fixes
+
+- Fixed runtime RPC startup in projects with `.feynman/settings.json` package entries by patching Pi's project npm install path to use peer-dependency-compatible installs.
+- This prevents project-scoped package sync from failing on packages such as `@aliou/pi-processes` before the RPC session can start.
+
+### Validation
+
+- Added regression coverage for the embedded Pi package-manager patch.
+- Real `v0.2.41` release RPC testing reproduced the missing project-package install failure that this release fixes.
+
 ## v0.2.41 - 2026-05-06
 
 ### Fixes
