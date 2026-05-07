@@ -4,6 +4,19 @@ This file is the public release history for Feynman. Keep entries user-facing: w
 
 GitHub release notes are generated from the matching `## vX.Y.Z` section in this file.
 
+## v0.2.45 - 2026-05-07
+
+### Updates
+
+- Updated the bundled Pi runtime packages to `@mariozechner/pi-ai@0.73.0` and `@mariozechner/pi-coding-agent@0.73.0`.
+- Updated `@clack/prompts` to `1.3.0` for the setup/onboarding prompt surface.
+
+### Validation
+
+- Full local tests passed: 154/154.
+- Typecheck, root build, website build, `feynman doctor`, and production `npm audit --omit=dev` passed.
+- JSONL RPC smoke passed with `get_state` and a `bash` command returning `FEYNMAN_RPC_OK`.
+
 ## v0.2.44 - 2026-05-06
 
 ### Fixes

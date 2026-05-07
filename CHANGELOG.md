@@ -15,6 +15,15 @@ Use this file to track chronology, not release notes. Keep entries short, factua
 - Blockers: ...
 - Next: ...
 
+### 2026-05-07 04:00 PDT — pi-runtime-refresh
+
+- Objective: Run another broad Feynman health sweep and take useful dependency/runtime fixes without bloating the wrapper.
+- Changed: Updated `@mariozechner/pi-ai` and `@mariozechner/pi-coding-agent` to `0.73.0`; updated `@clack/prompts` to `1.3.0`; bumped the package to `0.2.45`; added release notes.
+- Verified: Working tree started clean; open GitHub issues and PRs were empty; latest main release workflow was green; `npm test` passed with 154/154; typecheck, root build, website build, `feynman doctor`, `npm audit --omit=dev`, and `npm pack --dry-run` passed; JSONL RPC `get_state` plus `bash` returned `FEYNMAN_RPC_OK`.
+- Failed / learned: TypeScript `6.0.3` is available as a major upgrade, but this pass intentionally did not take that compiler jump because the runtime wrapper benefit is low relative to release risk.
+- Blockers: Need final post-bump validation, commit, push, release workflow confirmation, and installed CLI update.
+- Next: Re-run validation after the version bump, push `main`, watch release CI, then install `@companion-ai/feynman@0.2.45` globally.
+
 ### 2026-05-06 19:04 PDT — audit-cleanup
 
 - Objective: Run a broad maintenance pass after tracker cleanup and fix anything that materially helps Feynman.
