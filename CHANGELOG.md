@@ -15,6 +15,15 @@ Use this file to track chronology, not release notes. Keep entries short, factua
 - Blockers: ...
 - Next: ...
 
+### 2026-05-06 19:04 PDT — audit-cleanup
+
+- Objective: Run a broad maintenance pass after tracker cleanup and fix anything that materially helps Feynman.
+- Changed: Updated transitive dependency override pins for `basic-ftp`, `hono`, `express-rate-limit`, `ip-address`, AWS XML parsing dependencies, and MCP SDK resolution; bumped the package to `0.2.44`; added release notes.
+- Verified: Open GitHub issues and PRs were both empty; installed CLI and npm latest were `0.2.43` before this pass; full `npm test` passed with 154/154; typecheck, root build, website build, `feynman doctor`, and production `npm audit --omit=dev` passed.
+- Failed / learned: The remaining audit issues were caused by repo-level overrides pinning vulnerable transitive versions; local npm `min-release-age=7` required disabling the delay to install newly patched Hono.
+- Blockers: Need final post-bump validation, commit, push, release workflow confirmation, and installed CLI update.
+- Next: Re-run validation after the version bump, push `main`, watch release CI, then install `@companion-ai/feynman@0.2.44` globally.
+
 ### 2026-05-06 03:34 PDT — web-search-config-perms
 
 - Objective: Integrate the remaining open PR for web-search credential file permissions and ship it through the npm release path.

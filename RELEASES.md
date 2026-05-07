@@ -4,6 +4,19 @@ This file is the public release history for Feynman. Keep entries user-facing: w
 
 GitHub release notes are generated from the matching `## vX.Y.Z` section in this file.
 
+## v0.2.44 - 2026-05-06
+
+### Fixes
+
+- Updated transitive dependency override pins to patched versions so production `npm audit` reports zero vulnerabilities.
+- This removes advisories in `basic-ftp`, `fast-xml-parser`, `hono`, and `ip-address` while keeping the dependency changes scoped to existing transitive packages.
+
+### Validation
+
+- Production `npm audit --omit=dev` passed with zero vulnerabilities.
+- Full local tests passed: 154/154.
+- Typecheck, root build, website build, and `feynman doctor` passed.
+
 ## v0.2.43 - 2026-05-06
 
 ### Fixes
