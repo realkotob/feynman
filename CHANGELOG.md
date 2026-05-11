@@ -389,10 +389,10 @@ Use this file to track chronology, not release notes. Keep entries short, factua
 
 - Objective: Fix the current actionable GitHub reports after the org migration and keep issue checking on a daily repair loop.
 - Changed: Updated the `check-new-issues` heartbeat to run daily and attempt actionable fixes; added a final alphaXiv REST fast-search fallback after the removed MCP search tools and `discover_papers`; aliased `@earendil-works/*` Pi runtime imports to the same initialized bundled runtime as `@mariozechner/*`; wired that loader patch into the vendored runtime archive path; bumped Feynman to `v0.2.53`.
-- Verified: Focused alpha-hub and Pi extension-loader regression tests passed locally; confirmed the alphaXiv fast REST endpoint accepts `q=<query>&includePrivate=false`.
-- Failed / learned: The previous `v0.2.52` search patch was too narrow because it assumed `discover_papers` was always present when the older search tools disappeared.
-- Blockers: Full validation, archive rebuild, commit, push, and issue comments are still pending in this run.
-- Next: Run the full validation suite, rebuild the runtime archive, then commit/push and report release evidence on the affected issues.
+- Verified: Focused alpha-hub and Pi extension-loader regression tests passed locally; full `npm test`, `npm run typecheck`, root `npm run build`, `node scripts/prepare-runtime-workspace.mjs`, package dry-run, and website build with Node 24 passed; the packaged runtime archive contains the alphaXiv REST fallback and dual namespace loader aliases; GitHub release `v0.2.53` built all native assets.
+- Failed / learned: The previous `v0.2.52` search patch was too narrow because it assumed `discover_papers` was always present when the older search tools disappeared. The first `v0.2.53` publish workflow failed at npm publish with `ENEEDAUTH` after the org move, while GitHub native release assets succeeded.
+- Blockers: npm `latest` remains `0.2.52` until the npm trusted publisher is updated for `companion-inc/feynman` or an `NPM_TOKEN` secret is provided.
+- Next: Re-run the publish workflow after npm auth is fixed, then report release evidence on issues `#162` and `#163`.
 
 ### 2026-04-12 13:20 PDT — capital-france (citation verification brief)
 

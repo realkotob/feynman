@@ -78,8 +78,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          registry-url: "https://registry.npmjs.org"
       - run: npm ci
       - shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           LOCAL=$(node -p "require('./package.json').version")
           PUBLISHED=$(npm view @companion-ai/feynman version 2>/dev/null || true)
@@ -87,7 +90,7 @@ jobs:
             echo "@companion-ai/feynman@$LOCAL is already published; skipping npm publish."
             exit 0
           fi
-          npx npm@latest publish --access public
+          npx npm@latest publish --access public --provenance
 
   build-native-bundles:
     needs: version-check
