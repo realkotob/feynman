@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { patchPiAgentCoreSource } from "./lib/pi-agent-core-patch.mjs";
+import { patchPiExtensionLoaderSource } from "./lib/pi-extension-loader-patch.mjs";
 import { patchPiTuiSource } from "./lib/pi-tui-patch.mjs";
 import { PI_WEB_ACCESS_PATCH_TARGETS, patchPiWebAccessSource } from "./lib/pi-web-access-patch.mjs";
 import { PI_SUBAGENTS_PATCH_TARGETS, patchPiSubagentsSource, stripPiSubagentBuiltinModelSource } from "./lib/pi-subagents-patch.mjs";
@@ -103,6 +104,7 @@ function getRuntimeInputHash() {
 		packageLockPath,
 		settingsPath,
 		resolve(appRoot, "scripts", "lib", "pi-agent-core-patch.mjs"),
+		resolve(appRoot, "scripts", "lib", "pi-extension-loader-patch.mjs"),
 		resolve(appRoot, "scripts", "lib", "pi-package-manager-patch.mjs"),
 		resolve(appRoot, "scripts", "lib", "pi-tui-patch.mjs"),
 		resolve(appRoot, "scripts", "lib", "pi-web-access-patch.mjs"),
@@ -290,6 +292,29 @@ function patchBundledPiTui() {
 	return true;
 }
 
+function patchBundledPiExtensionLoader() {
+	const loaderPath = resolve(
+		workspaceNodeModulesDir,
+		"@mariozechner",
+		"pi-coding-agent",
+		"dist",
+		"core",
+		"extensions",
+		"loader.js",
+	);
+	if (!existsSync(loaderPath)) {
+		return false;
+	}
+
+	const source = readFileSync(loaderPath, "utf8");
+	const patched = patchPiExtensionLoaderSource(source);
+	if (patched === source) {
+		return false;
+	}
+	writeFileSync(loaderPath, patched, "utf8");
+	return true;
+}
+
 function patchBundledPiWebAccess() {
 	const piWebAccessRoot = resolve(workspaceNodeModulesDir, "pi-web-access");
 	if (!existsSync(piWebAccessRoot)) {
@@ -348,7 +373,14 @@ const packageSpecs = readPackageSpecs();
 
 if (workspaceIsCurrent(packageSpecs)) {
 	console.log("[feynman] vendored runtime workspace already up to date");
-	if (patchBundledPiAgentCore() || patchBundledPiTui() || patchBundledPiWebAccess() || patchBundledPiSubagents() || patchBundledAlphaHub()) {
+	if (
+		patchBundledPiAgentCore() ||
+		patchBundledPiExtensionLoader() ||
+		patchBundledPiTui() ||
+		patchBundledPiWebAccess() ||
+		patchBundledPiSubagents() ||
+		patchBundledAlphaHub()
+	) {
 		writeManifest(packageSpecs);
 		console.log("[feynman] patched bundled Pi runtime");
 	}
@@ -365,6 +397,7 @@ console.log("[feynman] preparing vendored runtime workspace...");
 prepareWorkspace(packageSpecs);
 pruneWorkspace();
 patchBundledPiAgentCore();
+patchBundledPiExtensionLoader();
 patchBundledPiTui();
 patchBundledPiWebAccess();
 patchBundledPiSubagents();

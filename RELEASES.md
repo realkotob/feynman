@@ -4,6 +4,18 @@ This file is the public release history for Feynman. Keep entries user-facing: w
 
 GitHub release notes are generated from the matching `## vX.Y.Z` section in this file.
 
+## v0.2.53 - 2026-05-11
+
+### Runtime Reliability
+
+- Hardened alphaXiv search fallback again: if both the removed MCP search tools and `discover_papers` are unavailable, `alpha search` now falls back to the public alphaXiv fast REST search endpoint.
+- Patched the Pi extension loader to alias both `@mariozechner/*` and `@earendil-works/*` Pi runtime imports to Feynman's already initialized bundled runtime, preventing mixed-namespace TUI/theme crashes when expanding tool output.
+- Applied the extension-loader patch to the vendored runtime archive path, not only the local development `node_modules` path.
+
+### Validation
+
+- Added regression coverage for upgrading the old `discover_papers`-only alphaXiv patch and for dual-namespace Pi runtime aliasing.
+
 ## v0.2.52 - 2026-05-09
 
 ### Runtime Reliability

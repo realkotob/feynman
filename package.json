@@ -1,6 +1,6 @@
 {
   "name": "@companion-ai/feynman",
-  "version": "0.2.52",
+  "version": "0.2.53",
   "description": "Research-first CLI agent built on Pi and alphaXiv",
   "license": "MIT",
   "type": "module",
@@ -110,10 +110,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/getcompanion-ai/feynman.git"
+    "url": "git+https://github.com/companion-inc/feynman.git"
   },
-  "homepage": "https://github.com/getcompanion-ai/feynman#readme",
+  "homepage": "https://github.com/companion-inc/feynman#readme",
   "bugs": {
-    "url": "https://github.com/getcompanion-ai/feynman/issues"
+    "url": "https://github.com/companion-inc/feynman/issues"
   }
 }

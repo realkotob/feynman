@@ -6,7 +6,7 @@
 <p align="center">The open source AI research agent.</p>
 <p align="center">
   <a href="https://feynman.is/docs"><img alt="Docs" src="https://img.shields.io/badge/docs-feynman.is-0d9668?style=flat-square" /></a>
-  <a href="https://github.com/getcompanion-ai/feynman/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/getcompanion-ai/feynman?style=flat-square" /></a>
+  <a href="https://github.com/companion-inc/feynman/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/companion-inc/feynman?style=flat-square" /></a>
 </p>
 
 ---
@@ -177,11 +177,11 @@ Built on [Pi](https://github.com/badlogic/pi-mono) for the agent runtime, [alpha
 
 ### Star History
 
-<a href="https://www.star-history.com/?repos=getcompanion-ai%2Ffeynman&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=companion-inc%2Ffeynman&type=date&legend=top-left">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=getcompanion-ai/feynman&type=date&theme=dark&legend=top-left" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=getcompanion-ai/feynman&type=date&legend=top-left" />
-    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=getcompanion-ai/feynman&type=date&legend=top-left" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=companion-inc/feynman&type=date&theme=dark&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=companion-inc/feynman&type=date&legend=top-left" />
+    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=companion-inc/feynman&type=date&legend=top-left" />
   </picture>
 </a>
 
@@ -192,7 +192,7 @@ Built on [Pi](https://github.com/badlogic/pi-mono) for the agent runtime, [alpha
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor guide.
 
 ```bash
-git clone https://github.com/getcompanion-ai/feynman.git
+git clone https://github.com/companion-inc/feynman.git
 cd feynman
 nvm use || nvm install
 npm install

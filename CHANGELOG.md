@@ -385,6 +385,15 @@ Use this file to track chronology, not release notes. Keep entries short, factua
 - Blockers: None for the prompt restoration itself.
 - Next: If desired, add dedicated docs for `summarize` and decide whether to reopen PR `#69` for historical continuity or leave it closed as superseded by the landed equivalent on `main`.
 
+### 2026-05-11 09:17 PDT — issue-162-163-runtime-followup
+
+- Objective: Fix the current actionable GitHub reports after the org migration and keep issue checking on a daily repair loop.
+- Changed: Updated the `check-new-issues` heartbeat to run daily and attempt actionable fixes; added a final alphaXiv REST fast-search fallback after the removed MCP search tools and `discover_papers`; aliased `@earendil-works/*` Pi runtime imports to the same initialized bundled runtime as `@mariozechner/*`; wired that loader patch into the vendored runtime archive path; bumped Feynman to `v0.2.53`.
+- Verified: Focused alpha-hub and Pi extension-loader regression tests passed locally; confirmed the alphaXiv fast REST endpoint accepts `q=<query>&includePrivate=false`.
+- Failed / learned: The previous `v0.2.52` search patch was too narrow because it assumed `discover_papers` was always present when the older search tools disappeared.
+- Blockers: Full validation, archive rebuild, commit, push, and issue comments are still pending in this run.
+- Next: Run the full validation suite, rebuild the runtime archive, then commit/push and report release evidence on the affected issues.
+
 ### 2026-04-12 13:20 PDT — capital-france (citation verification brief)
 
 - Objective: Verify citations in the capital-of-France draft and produce a cited verifier brief.
