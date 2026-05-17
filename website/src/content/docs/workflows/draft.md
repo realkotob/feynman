@@ -2,7 +2,7 @@
 title: Draft Writing
 description: Generate a paper-style draft from research findings and session context.
 section: Workflows
-order: 7
+order: 8
 ---
 
 The draft writing workflow generates structured academic-style documents from your research findings. It uses the writer agent to produce well-organized prose with proper citations, sections, and formatting suitable for papers, reports, or blog posts.
@@ -34,6 +34,8 @@ The draft workflow leverages the writer agent, which specializes in producing st
 When working from existing session context (after a deep research or literature review), the writer skips the research phase and works directly with the findings already gathered. This produces a more focused draft because the source material has already been vetted and organized.
 
 The writer pays attention to academic conventions: claims are attributed to their sources with inline citations, methodology sections describe procedures precisely, and limitations are discussed honestly. The draft includes placeholder sections for any content the writer cannot generate from available sources, clearly marking what needs human input.
+
+Drafts follow Feynman's system-wide provenance rules: unsupported results, figures, images, tables, or benchmark data should become clearly labeled gaps or TODOs, not plausible-looking claims.
 
 ## Output format
 

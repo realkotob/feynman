@@ -150,7 +150,8 @@ function detectSystemResources(): SystemResources {
 	} catch {}
 
 	try {
-		execSync("command -v docker >/dev/null 2>&1", { timeout: 500 });
+		const probe = process.platform === "win32" ? "where docker" : "command -v docker";
+		execSync(probe, { timeout: 500, stdio: "ignore" });
 		cachedResources.docker = true;
 	} catch {}
 
@@ -189,6 +190,7 @@ export function installFeynmanHeader(
 		const toolCount = pi.getAllTools().length;
 		const commandCount = pi.getCommands().length;
 		const agentCount = agentData.agents.length + agentData.chains.length;
+		const activitySnapshot = getRecentActivitySummary(ctx);
 
 		ctx.ui.setHeader((_tui, theme) => ({
 			render(width: number): string[] {
@@ -224,7 +226,9 @@ export function installFeynmanHeader(
 				const modelLabel = getCurrentModelLabel(ctx);
 				const sessionId = ctx.sessionManager.getSessionName()?.trim() || ctx.sessionManager.getSessionId();
 				const dirLabel = formatHeaderPath(ctx.cwd);
-				const activity = getRecentActivitySummary(ctx);
+				// Keep the header stable during streaming work. Recomputing this from the live
+				// branch on every render makes high-churn workflows redraw the whole viewport.
+				const activity = activitySnapshot;
 
 				push("");
 				if (cardW >= 70) {

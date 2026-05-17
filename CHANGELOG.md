@@ -15,6 +15,186 @@ Use this file to track chronology, not release notes. Keep entries short, factua
 - Blockers: ...
 - Next: ...
 
+### 2026-05-16 17:43 PDT — hindsight-memory-preset
+
+- Objective: Address issue `#166` by making Hindsight memory installable through Feynman's optional package preset system.
+- Changed: Added a `hindsight` optional preset for `@luxusai/pi-hindsight`, added `hindsight` and `pi-hindsight` update aliases, bumped the package to `0.2.58`, and updated release, package-stack, and setup docs.
+- Verified: Live npm metadata and README for Hindsight Pi packages were checked; full root tests, typecheck, root build, root and website production audits, website build, package dry-run, package-list smoke, and a temp-home `feynman packages install hindsight` smoke passed locally.
+- Failed / learned: The issue body was empty, but live npm package research found multiple Hindsight Pi packages; `@luxusai/pi-hindsight` is the most current docs-backed fit for Feynman's newer Pi runtime namespace while remaining optional.
+- Blockers: Need commit, push, release workflow confirmation, npm latest verification, and issue update.
+- Next: Push `main`, watch release CI, verify npm latest, then update and close `#166`.
+
+### 2026-05-15 03:07 PDT — editor-input-contrast
+
+- Objective: Fix issue `#165`, where macOS/iTerm users could not read typed text in Feynman's dark interactive input box.
+- Changed: Centralized the Pi TUI editor/theme patch, added an explicit editor input foreground, applied the patch to package-local Pi files, launch-time runtime patching, and the vendored runtime archive path; bumped the package to `0.2.57`; added release notes; and updated the website lockfile `devalue` transitive to `5.8.1` after audit flagged the older release.
+- Verified: Focused Pi TUI tests, full root tests, typecheck, root build, root production audit, website production audit, website build, runtime archive content inspection, package dry-run, packed tarball inspection, and clean installed-tarball `feynman --version` plus `feynman doctor` passed locally.
+- Failed / learned: The placeholder was readable because it already used a themed foreground; typed input inherited the terminal default foreground after Feynman added the dark editor background.
+- Blockers: Need commit, push, release workflow confirmation, npm latest verification, and issue closure.
+- Next: Push `main`, watch release CI, verify npm latest, then close `#165`.
+
+### 2026-05-13 11:55 PDT — audit-detail-sweep
+
+- Objective: Tighten the current Feynman release line after a broad detail sweep.
+- Changed: Bumped the root `protobufjs` override to `7.5.8`, refreshed the lockfile, added `0.2.56` release notes, and kept the package line publishable with a new patch version.
+- Verified: Tracker and PR lists were empty; root tests, typecheck, build, root and website production audits, website build, diff whitespace check, package dry-run, and clean installed-tarball `feynman --version` plus `feynman doctor` passed after the override refresh.
+- Failed / learned: The first root production audit exposed a new `protobufjs <=7.5.5` advisory from the existing override, so `0.2.55` needed a follow-up security patch rather than a no-op sweep.
+- Blockers: Need commit, push, release workflow confirmation, and npm latest verification for `0.2.56`.
+- Next: Push `main`, watch release CI, then verify npm latest.
+
+### 2026-05-09 16:20 PDT — skills-install-targets
+
+- Objective: Make standalone skills installs unambiguous for Codex, Claude/agent repo-local use, and OpenCode.
+- Changed: Added explicit Codex installer scopes, documented target-specific commands, and added Codex smoke coverage.
+- Verified: Focused installer tests, full root test suite, root typecheck, root build, package dry-run, diff whitespace check, website typecheck, and website build passed locally.
+- Failed / learned: The existing default was already Codex, but the named scopes did not expose that clearly.
+- Blockers: None.
+- Next: Push `0.2.50` and answer issue #161 with the Codex, repo-local, and OpenCode commands.
+
+### 2026-05-09 17:05 PDT — pi-package-peer-deps
+
+- Objective: Address the missing peer-runtime dependency class reported as a follow-up on issue #80 and stop the issue monitor from missing new comments.
+- Changed: Updated the issue heartbeat to include new comments; changed Pi package npm installs/updates to install the pinned Pi runtime peer packages beside Pi packages; bumped to `0.2.51`.
+- Verified: Focused package-manager tests, full root test suite, root typecheck, root build, package dry-run, diff whitespace check, website typecheck, and website build passed locally.
+- Failed / learned: The pasted `@earendil-works/pi-coding-agent` imports do not match the current npm tarballs for `pi-btw@0.3.7` or `pi-markdown-preview@0.9.7`, which currently import `@mariozechner/*`; the real Feynman-side bug is legacy peer dependency mode leaving peer-only runtime packages absent.
+- Blockers: None.
+- Next: Push `0.2.51`, watch release CI, and report the monitor/fix status.
+
+### 2026-05-07 15:05 PDT — node24-core-researcher
+
+- Objective: Fix the Node 24 regression from the default Pi package set while keeping Feynman focused on the core AI researcher path.
+- Changed: Restored Node 24 support, slimmed default packages to alphaXiv/subagents/doc parsing/web access, moved memory and session search to optional presets, and upgraded the website stack to patched Astro 6/Vite 7 with the current content-layer config.
+- Verified: Root build, typecheck, full tests, package dry-run, native bundle build, website build/typecheck/lint, and production audits passed locally.
+- Failed / learned: The native bundle and website build still had stale assumptions: native validation expected `better-sqlite3`, and the Astro 6 upgrade needed the Vite override lifted to Vite 7 before static pages rendered.
+- Blockers: None.
+- Next: Push `main` and use release CI to publish `0.2.49`.
+
+### 2026-05-07 04:00 PDT — pi-runtime-refresh
+
+- Objective: Run another broad Feynman health sweep and take useful dependency/runtime fixes without bloating the wrapper.
+- Changed: Updated `@mariozechner/pi-ai` and `@mariozechner/pi-coding-agent` to `0.73.0`; updated `@clack/prompts` to `1.3.0`; bumped the package to `0.2.45`; added release notes.
+- Verified: Working tree started clean; open GitHub issues and PRs were empty; latest main release workflow was green; `npm test` passed with 154/154; typecheck, root build, website build, `feynman doctor`, `npm audit --omit=dev`, and `npm pack --dry-run` passed; JSONL RPC `get_state` plus `bash` returned `FEYNMAN_RPC_OK`; release CI published npm `0.2.45`, built native bundles, and created the GitHub release; global `feynman@0.2.45` installed and passed doctor plus RPC smoke.
+- Failed / learned: TypeScript `6.0.3` is available as a major upgrade, but this pass intentionally did not take that compiler jump because the runtime wrapper benefit is low relative to release risk.
+- Blockers: None for the runtime refresh.
+- Next: Keep TypeScript 6 as a separate deliberate migration, not part of a runtime refresh.
+
+### 2026-05-07 05:20 PDT — ml-recipe-workflow
+
+- Objective: Review and finish the pending ML recipe workflow instead of leaving it as unverified local drift.
+- Changed: Added the `/recipe` workflow, read-only Hugging Face Hub inspection tools, researcher recipe-mode guidance, docs, and focused Hugging Face tool tests; bumped the package to `0.2.46`.
+- Verified: Context7 docs for Hugging Face.js confirm the Hub list/download model; live Hub checks returned HTTP 200 for dataset metadata, dataset tree, model tree, and README reads; mocked unit tests cover tool registration, auth, encoded URLs, limits, and truncation; `npm test` passed with 156/156; typecheck, root build, website build, CLI help, and `git diff --check` passed.
+- Failed / learned: The global `0.2.45` release correctly did not include the pending recipe workflow, so this needs its own versioned release instead of being described under `0.2.45`.
+- Blockers: Need post-bump pack/audit validation, commit, push, release workflow confirmation, and global install update to `0.2.46`.
+- Next: Run final validation, push `main`, watch release CI, then install `@companion-ai/feynman@0.2.46` globally.
+
+### 2026-05-07 05:35 PDT — docs-test-cleanup
+
+- Objective: Clear the remaining local doc/test corrections without pushing a duplicate package version.
+- Changed: Linked upstream Pi and Hugging Face docs from README and website docs; clarified Hugging Face binary-file refusal behavior; tightened the binary-refusal test assertion; bumped the package to `0.2.47`.
+- Verified: Pending final validation before push.
+- Failed / learned: `0.2.46` released successfully, so any further pushed changes need a new package version to keep the release workflow green.
+- Blockers: Need validation, push, release workflow confirmation, and global install update to `0.2.47`.
+- Next: Run tests/build/audit/pack, push `main`, watch release CI, then install latest globally.
+
+### 2026-05-06 19:04 PDT — audit-cleanup
+
+- Objective: Run a broad maintenance pass after tracker cleanup and fix anything that materially helps Feynman.
+- Changed: Updated transitive dependency override pins for `basic-ftp`, `hono`, `express-rate-limit`, `ip-address`, AWS XML parsing dependencies, and MCP SDK resolution; bumped the package to `0.2.44`; added release notes.
+- Verified: Open GitHub issues and PRs were both empty; installed CLI and npm latest were `0.2.43` before this pass; full `npm test` passed with 154/154; typecheck, root build, website build, `feynman doctor`, and production `npm audit --omit=dev` passed.
+- Failed / learned: The remaining audit issues were caused by repo-level overrides pinning vulnerable transitive versions; local npm `min-release-age=7` required disabling the delay to install newly patched Hono.
+- Blockers: Need final post-bump validation, commit, push, release workflow confirmation, and installed CLI update.
+- Next: Re-run validation after the version bump, push `main`, watch release CI, then install `@companion-ai/feynman@0.2.44` globally.
+
+### 2026-05-06 03:34 PDT — web-search-config-perms
+
+- Objective: Integrate the remaining open PR for web-search credential file permissions and ship it through the npm release path.
+- Changed: Restricted `.feynman/web-search.json` to `0600` after writes, added POSIX regression coverage, bumped the package to `0.2.43`, and added release notes.
+- Verified: Focused `pi-web-access` test passed; final post-bump `npm test` passed with 154/154; typecheck, build, diff check, package-lock version check, and `npm pack --dry-run` passed.
+- Failed / learned: A code-only commit would not publish because `0.2.42` was already on npm, so this fix needs a version bump.
+- Blockers: Need push, GitHub Actions release confirmation, and PR #154 closure.
+- Next: Push `main`, watch the release workflow, then close PR #154 as integrated.
+
+### 2026-05-06 00:00 local — github-issues-150-153
+
+- Objective: Read the current Feynman GitHub issues and fix the open tracker items end to end.
+- Changed: Fixed bundled package seeding so copied runtime packages satisfy startup package checks; seeded bundles before interactive setup reports missing packages; restricted Feynman and sqlite-backed native package support to Node 22; moved release CI to Node 22; restored token-based npm publishing; made GitHub native releases independent of the npm publish result; applied the biomedical literature review docs from PR #152; bumped the package to `0.2.41`.
+- Verified: Ran `npm test` with 151/151 passing, `npm run typecheck`, `npm run build`, `cd website && npm run build`, `node bin/feynman.js --version`, and a fresh `FEYNMAN_HOME` package-detection smoke that reported zero missing startup packages.
+- Failed / learned: The package seeding bug was not just missing files; copied bundled packages were present but not counted as seeded because the check only recognized symlink targets.
+- Blockers: npm publish is still blocked by registry credentials returning 404 for `@companion-ai/feynman@0.2.41`; GitHub native release still needs observation.
+- Next: Confirm the follow-up release run publishes the GitHub native bundles, then close/comment issues #150, #151, #153 and PR #152.
+
+### 2026-04-12 00:00 local — capital-france
+
+- Objective: Run an unattended deep-research workflow for the question "What is the capital of France?"
+- Changed: Created plan artifact at `outputs/.plans/capital-france.md`; scoped the workflow as a narrow fact-verification run with direct lead-agent evidence gathering instead of researcher subagents.
+- Verified: Read existing `CHANGELOG.md` and recalled prior saved plan memory for `capital-france` before finalizing the new run plan.
+- Failed / learned: None yet.
+- Blockers: Need at least two current independent authoritative sources and a quick ambiguity check before drafting.
+- Next: Collect current official/public sources, resolve any legal nuance, then draft and verify the brief.
+
+### 2026-04-12 00:20 local — capital-france
+
+- Objective: Complete evidence gathering and ambiguity check for the capital-of-France workflow.
+- Changed: Wrote `notes/capital-france-research-web.md` and `notes/capital-france-legal-context.md`; identified Insee (2024) and a Sénat report as the two main corroborating sources.
+- Verified: Cross-read current public French sources that explicitly describe Paris as the capital/capital city of France; found no current contradiction.
+- Failed / learned: The Presidency homepage was useful contextual support but not explicit enough to carry the core claim alone.
+- Blockers: Need citation pass and final review pass before promotion.
+- Next: Draft the brief, then run verifier and reviewer passes.
+
+### 2026-04-12 00:35 local — capital-france
+
+- Objective: Move from gathered evidence to a citable draft.
+- Changed: Wrote `outputs/.drafts/capital-france-draft.md` and updated the plan ledger to mark drafting complete.
+- Verified: Kept the core claim narrowly scoped to what the Insee and Sénat sources explicitly support; treated the Élysée page as contextual only.
+- Failed / learned: None.
+- Blockers: Need verifier URL/citation pass and reviewer verification pass before final promotion.
+- Next: Run verifier on the draft, then review and promote the final brief.
+
+### 2026-04-12 00:50 local — capital-france
+
+- Objective: Complete citation, verification, and final promotion for the capital-of-France workflow.
+- Changed: Produced `outputs/capital-france-brief.md`, ran verification into `notes/capital-france-verification.md`, promoted the final brief to `outputs/capital-france.md`, and wrote `outputs/capital-france.provenance.md`.
+- Verified: Reviewer found no FATAL or MAJOR issues. Core claim remains backed by two independent French public-institution sources, with Insee as the primary explicit source and the Sénat report as corroboration.
+- Failed / learned: The runtime did not expose a named `verifier` subagent, so I used an available worker in a verifier-equivalent role and recorded that deviation in the plan.
+- Blockers: None.
+- Next: If needed, extend the brief with deeper legal-historical sourcing, but the narrow factual question is sufficiently answered.
+
+### 2026-04-12 10:05 local — capital-france
+
+- Objective: Run the citation-verification pass on the capital-of-France draft and promote a final cited brief.
+- Changed: Verified the three draft source URLs were live (HTTP 200 at check time), added numbered inline citations, downgraded unsupported phrasing around the Élysée/context and broad ambiguity claims, and wrote `outputs/capital-france-brief.md`.
+- Verified: Confirmed Insee explicitly says Paris is the capital of France; confirmed the Sénat report describes Paris’s capital status and the presence of national institutions; confirmed the Élysée homepage is contextual only and not explicit enough to carry the core claim.
+- Failed / learned: The draft wording about the Presidency being seated in Paris was not directly supported by the cited homepage, so it was removed rather than carried forward.
+- Blockers: Reviewer pass still pending if the workflow requires an adversarial final check.
+- Next: If needed, run a final reviewer pass; otherwise use `outputs/capital-france-brief.md` as the canonical brief.
+
+### 2026-04-12 10:20 local — capital-france
+
+- Objective: Close the workflow with final review, final artifact promotion, and provenance.
+- Changed: Ran a reviewer pass recorded in `notes/capital-france-verification.md`; promoted the cited brief into `outputs/capital-france.md`; wrote `outputs/capital-france.provenance.md`; updated the run plan to mark all tasks complete.
+- Verified: Reviewer verdict was PASS WITH MINOR REVISIONS only; those minor wording fixes were applied before delivery.
+- Failed / learned: The runtime did not expose a project-named `verifier` agent, so the citation pass used an available worker agent as a verifier-equivalent step.
+- Blockers: None.
+- Next: Optional only — produce a legal memorandum on the basis of Paris's capital status if requested.
+
+### 2026-04-14 12:00 local — capital-belgium
+
+- Objective: Run a deep-research workflow for the question "What is the capital of Belgium?"
+- Changed: Created plan artifact at `outputs/.plans/capital-belgium.md`; gathered evidence into `notes/capital-belgium-research-web.md` from Belgium.be, FPS Foreign Affairs, Britannica, and a Belgian Senate constitution check.
+- Verified: Found two explicit current Belgian government statements that Brussels is the federal capital of Belgium, plus independent Britannica corroboration; no conflicting nuance surfaced in the consulted legal text.
+- Failed / learned: This is narrow enough that researcher subagents would add overhead without increasing evidence quality.
+- Blockers: Need draft, citation/URL verification pass, final review pass, and promotion.
+- Next: Draft the brief, run verifier-equivalent and reviewer passes, then promote final output with provenance.
+
+### 2026-04-14 12:25 local — capital-belgium
+
+- Objective: Complete citation, verification, and final promotion for the capital-of-Belgium workflow.
+- Changed: Wrote `outputs/.drafts/capital-belgium-draft.md`; produced cited brief `outputs/capital-belgium-brief.md`; ran verification into `notes/capital-belgium-verification.md`; promoted final output to `outputs/capital-belgium.md`; wrote `outputs/capital-belgium.provenance.md`; updated the plan ledger and verification log.
+- Verified: Core claim is now backed by Belgium.be, Belgian Foreign Affairs, Britannica, and direct constitutional text from Senate-hosted Article 194 stating that Brussels is the capital of Belgium and the seat of the federal government.
+- Failed / learned: The runtime did not expose a named `verifier` subagent, so a worker performed a verifier-equivalent citation/URL check; reviewer surfaced a stronger constitutional source than the first draft had emphasized.
+- Blockers: None.
+- Next: Optional only — if requested, expand this into a legal-historical note on Brussels’s capital status and the distinction between city, region, and federal institutions.
+
 ### 2026-03-25 00:00 local — scaling-laws
 
 - Objective: Set up a deep research workflow for scaling laws.
@@ -149,3 +329,176 @@ Use this file to track chronology, not release notes. Keep entries short, factua
 - Failed / learned: The MiniMax provider catalog in Pi already uses canonical IDs like `MiniMax-M2.7`, so the only failure during validation was a test assertion using the wrong casing rather than a runtime bug.
 - Blockers: The Cloud Code Assist fix is validated by targeted patch tests and code-path review rather than an end-to-end Google account repro in this environment.
 - Next: Push the tracker-triage commit, close the docs/MiniMax PRs as superseded by main, close the support-style model issues against the new docs, and decide whether the remaining feature requests should be left open or closed as not planned/upstream-dependent.
+
+### 2026-04-10 10:22 PDT — web-access-stale-override-fix
+
+- Objective: Fix the new `ctx.modelRegistry.getApiKeyAndHeaders is not a function` / stale `search-filter.js` report without reintroducing broad vendor drift.
+- Changed: Removed the stale `.feynman/vendor-overrides/pi-web-access/*` files and removed `syncVendorOverride` from `scripts/patch-embedded-pi.mjs`; kept the targeted `pi-web-access` runtime config-path patch; added `feynman search set <provider> [api-key]` and `feynman search clear` commands with a shared save path in `src/pi/web-access.ts`.
+- Verified: Ran `npm test`, `npm run typecheck`, `npm run build`; ran `node scripts/patch-embedded-pi.mjs`, confirmed the installed `pi-web-access/index.ts` has no `search-filter` / condense helper references, and smoke-imported `./.feynman/npm/node_modules/pi-web-access/index.ts`; ran `npm pack --dry-run` and confirmed stale `vendor-overrides` files are no longer in the package tarball.
+- Failed / learned: The public Linux installer Docker test was attempted but Docker Desktop became unresponsive even for simple `docker run node:22-bookworm node -v` commands; the earlier Linux npm-artifact container smoke remains valid, but this specific public-installer run is blocked by the local Docker daemon.
+- Blockers: Issue `#54` is too underspecified to fix directly without logs; public Linux installer behavior still needs a stable Docker daemon or a real Linux shell to reproduce the user's exact npm errors.
+- Next: Push the stale-override fix, close PR `#52` and PR `#53` as superseded/merged-by-main once pushed, and ask for logs on issue `#54` instead of guessing.
+
+### 2026-04-10 10:49 PDT — rpc-and-website-verification-pass
+
+- Objective: Exercise the Feynman wrapper's RPC mode and the website quality gates that were not fully covered by the prior passes.
+- Changed: Added `--mode <text|json|rpc>` pass-through support in the Feynman wrapper and skipped terminal clearing in RPC mode; added `@astrojs/check` to the website dev dependencies, fixed React Refresh lint violations in the generated UI components by exporting only components, and added safe website dependency overrides for dev-audit findings.
+- Verified: Ran a JSONL RPC smoke test through `node bin/feynman.js --mode rpc` with `get_state`; ran `npm test`, `npm run typecheck`, `npm run build`, `cd website && npm run lint`, `cd website && npm run typecheck`, `cd website && npm run build`, full root `npm audit`, full website `npm audit`, and `npm run build:native-bundle`.
+- Failed / learned: Website typecheck was previously a no-op prompt because `@astrojs/check` was missing; installing it exposed dev-audit findings that needed explicit overrides before the full website audit was clean.
+- Blockers: Docker Desktop remained unreliable after restart attempts, so this pass still does not include a second successful public-installer Linux Docker run.
+- Next: Push the RPC/website verification commit and keep future Docker/public-installer validation separate from repo correctness unless Docker is stable.
+
+### 2026-04-12 09:32 PDT — pi-0.66.1-upgrade-pass
+
+- Objective: Update Feynman from Pi `0.64.0` to the current `0.66.1` packages and absorb any downstream SDK/runtime compatibility changes instead of leaving the repo pinned behind upstream.
+- Changed: Bumped `@mariozechner/pi-ai` and `@mariozechner/pi-coding-agent` to `0.66.1` plus `@companion-ai/alpha-hub` to `0.1.3` in `package.json` and `package-lock.json`; updated `extensions/research-tools.ts` to stop listening for the removed `session_switch` extension event and rely on `session_start`, which now carries startup/reload/new/resume/fork reasons in Pi `0.66.x`.
+- Verified: Ran `npm test`, `npm run typecheck`, and `npm run build` successfully after the upgrade; smoke-ran `node bin/feynman.js --version`, `node bin/feynman.js doctor`, and `node bin/feynman.js status` successfully; checked upstream package diffs and confirmed the breaking change that affected this repo was the typed extension lifecycle change in `pi-coding-agent`, while `pi-ai` mainly brought refreshed provider/model catalog code including Bedrock/OpenAI provider updates and new generated model entries.
+- Failed / learned: `ctx7` resolved Pi correctly to `/badlogic/pi-mono`, but its docs snapshot was not release-note oriented; the concrete downstream-impact analysis came from the actual `0.64.0` → `0.66.1` package diffs and local validation, not from prose docs alone.
+- Failed / learned: The first post-upgrade CLI smoke test failed before Feynman startup because `@companion-ai/alpha-hub@0.1.2` shipped a zero-byte `src/lib/auth.js`; bumping to `0.1.3` fixed that adjacent runtime blocker.
+- Blockers: `npm install` reports two high-severity vulnerabilities remain in the dependency tree; this pass focused on the Pi upgrade and did not remediate unrelated audit findings.
+- Next: Push the Pi upgrade, then decide whether to layer the pending model-command fixes on top of this branch or land them separately to keep the dependency bump easy to review.
+
+### 2026-04-12 13:00 PDT — model-command-and-bedrock-fix-pass
+
+- Objective: Finish the remaining user-facing model-management regressions instead of stopping at the Pi dependency bump.
+- Changed: Updated `src/model/commands.ts` so `feynman model login <provider>` resolves both OAuth and API-key providers; `feynman model logout <provider>` clears either auth mode; `feynman model set` accepts both `provider/model` and `provider:model`; ambiguous bare model IDs now prefer explicitly configured providers from auth storage; added an `amazon-bedrock` setup path that validates the AWS credential chain with the AWS SDK and stores Pi's `<authenticated>` sentinel so Bedrock models appear in `model list`; synced `src/cli.ts`, `metadata/commands.mjs`, `README.md`, and the website docs to the new behavior.
+- Verified: Added regression tests in `tests/model-harness.test.ts` for `provider:model`, API-key provider resolution, and ambiguous bare-ID handling; ran `npm test`, `npm run typecheck`, `npm run build`, and `cd website && npm run build`; exercised command-level flows against throwaway `FEYNMAN_HOME` directories: interactive `node bin/feynman.js model login google`, `node bin/feynman.js model set google:gemini-3-pro-preview`, `node bin/feynman.js model set gpt-5.4` with only OpenAI configured, and `node bin/feynman.js model login amazon-bedrock`; confirmed `model list` shows Bedrock models after the new setup path; ran a live one-shot prompt `node bin/feynman.js --prompt "Reply with exactly OK"` and got `OK`.
+- Failed / learned: The website build still emits duplicate-id warnings for a handful of docs pages, but it completes successfully; those warnings predate this pass and were not introduced by the model-command edits.
+- Blockers: The Bedrock path is verified with the current shell's AWS credential chain, not with a fresh machine lacking AWS config; broader upstream Pi behavior around IMDS/default-profile autodiscovery without the sentinel is still outside this repo.
+- Next: Commit and push the combined Pi/model/docs maintenance branch, then decide whether to tackle the deeper search/deepresearch hang issues separately or leave them for focused repro work.
+
+### 2026-04-12 13:35 PDT — workflow-unattended-and-search-curator-fix-pass
+
+- Objective: Fix the remaining workflow deadlocks instead of leaving `deepresearch` and terminal web search half-functional after the maintenance push.
+- Changed: Updated the built-in research workflow prompts (`deepresearch`, `lit`, `review`, `audit`, `compare`, `draft`, `watch`) so they present the plan and continue automatically rather than blocking for approval; extended the `pi-web-access` runtime patch so Feynman rewrites its default workflow from browser-based `summary-review` to `none`; added explicit `workflow: "none"` persistence in `src/search/commands.ts` and `src/pi/web-access.ts`, plus surfaced the workflow in doctor/status-style output.
+- Verified: Reproduced the original `deepresearch` failure mode in print mode, where the run created `outputs/.plans/capital-france.md` and then stopped waiting for user confirmation; after the prompt changes, reran `deepresearch "What is the capital of France?"` and confirmed it progressed beyond planning and produced `outputs/.drafts/capital-france-draft.md`; inspected `pi-web-access@0.10.6` and confirmed the exact `waiting for summary approval...` string and `summary-review` default live in that package; added regression tests for the new `pi-web-access` patch and workflow-none status handling; reran `npm test`, `npm run typecheck`, and `npm run build`; smoke-tested `feynman search set exa exa_test_key` under a throwaway `FEYNMAN_HOME` and confirmed it writes `"workflow": "none"` to `web-search.json`.
+- Failed / learned: The long-running deepresearch session still spends substantial time in later reasoning/writing steps for even a narrow query, but the plan-confirmation deadlock itself is resolved; the remaining slowness is model/workflow behavior, not the original stop-after-plan bug.
+- Blockers: I did not install and execute the full optional `pi-session-search` package locally, so the terminal `summary approval` fix is validated by source inspection plus the Feynman patch path and config persistence rather than a local end-to-end package install.
+- Next: Commit and push the workflow/search fix pass, then close or answer the remaining deepresearch/search issues with the specific root causes and shipped fixes.
+
+### 2026-04-12 14:05 PDT — final-artifact-hardening-pass
+
+- Objective: Reduce the chance of unattended research workflows stopping at intermediate artifacts like `<slug>-brief.md` without promoting the final deliverable and provenance sidecar.
+- Changed: Tightened `prompts/deepresearch.md` so the agent must verify on disk that the plan, draft, cited brief, promoted final output, and provenance sidecar all exist before stopping; tightened `prompts/lit.md` so it explicitly checks for the final output plus provenance sidecar instead of stopping at an intermediate cited draft.
+- Verified: Cross-read the current deepresearch/lit deliver steps after the earlier unattended-run reproductions and confirmed the missing enforcement point was the final on-disk artifact check, not the naming convention itself.
+- Failed / learned: This is still prompt-level enforcement rather than a deterministic post-processing hook, so it improves completion reliability but does not provide the same guarantees as a dedicated artifact-finalization wrapper.
+- Blockers: I did not rerun a full broad deepresearch workflow end-to-end after this prompt-only hardening because those runs are materially longer and more expensive than the narrow reproductions already used to isolate the earlier deadlocks.
+- Next: Commit and push the prompt hardening, then, if needed, add a deterministic wrapper around final artifact promotion instead of relying only on prompt adherence.
+
+### 2026-04-14 09:30 PDT — wsl-login-and-uninstall-docs-pass
+
+- Objective: Fix the remaining WSL setup blocker and close the last actionable support issue instead of leaving the tracker open after the earlier workflow/model fixes.
+- Changed: Added a dedicated alpha-hub auth patch helper and tests; extended the alphaXiv login patch so WSL uses `wslview` when available and falls back to `cmd.exe /c start`, while also printing the auth URL explicitly for manual copy/paste if browser launch still fails; documented standalone uninstall steps in `README.md` and `website/src/content/docs/getting-started/installation.md`.
+- Verified: Added regression tests for the alpha-hub auth patch, reran `npm test`, `npm run typecheck`, and `npm run build`, and smoke-checked the patched alpha-hub source rewrite to confirm it injects both the WSL browser path and the explicit auth URL logging.
+- Failed / learned: This repo can patch alpha-hub's login UX reliably, but it still does not ship a destructive `feynman uninstall` command; the practical fix for the support issue is documented uninstall steps rather than a rushed cross-platform remover.
+- Blockers: I did not run a true WSL shell here, so the WSL fix is validated by the deterministic source patch plus tests rather than an actual Windows-hosted browser-launch repro.
+- Next: Push the WSL/login pass and close the stale issues and PRs that are already superseded by `main`.
+
+### 2026-04-14 09:35 PDT — review-findings-and-audit-cleanup
+
+- Objective: Fix the remaining concrete issues found in the deeper review pass instead of stopping at tracker cleanup.
+- Changed: Updated the `pi-web-access` patch so Feynman defaults search workflow to `none` without disabling explicit `summary-review`; softened the research workflow prompts so only unattended/one-shot runs auto-continue while interactive users still get a chance to request plan changes; corrected uninstall docs to mention `~/.ahub` alongside `~/.feynman`; bumped the root `basic-ftp` override from `5.2.1` to `5.2.2`.
+- Verified: Ran `npm test`, `npm run typecheck`, `npm run build`, `cd website && npm run build`, and `npm audit`; root audit is now clean.
+- Failed / learned: Astro still emits a duplicate-content-id warning for `website/src/content/docs/getting-started/installation.md`, but the website build succeeds and I did not identify a low-risk repo-side fix for that warning in this pass.
+- Blockers: The duplicate-id warning remains as a build warning only, not a failing correctness gate.
+- Next: If desired, isolate the Astro duplicate-id warning separately with a minimal reproduction rather than mixing it into runtime/CLI maintenance.
+
+### 2026-04-14 10:55 PDT — summarize-workflow-restore
+
+- Objective: Restore the useful summarization workflow that had been closed in PR `#69` without being merged.
+- Changed: Added `prompts/summarize.md` as a top-level CLI workflow so `feynman summarize <source>` is available again; kept the RLM-based tiering approach from the original proposal and aligned Tier 3 confirmation behavior with the repo's unattended-run conventions.
+- Verified: Confirmed `feynman summarize <source>` appears in CLI help; ran `node bin/feynman.js summarize /tmp/feynman-summary-smoke.txt` against a local smoke file and verified it produced `outputs/feynman-summary-smoke-summary.md` plus the raw fetched note artifact under `outputs/.notes/`.
+- Failed / learned: None in the restored Tier 1 path; broader Tier 2/Tier 3 behavior still depends on runtime/model/tool availability, just like the other prompt-driven workflows.
+- Blockers: None for the prompt restoration itself.
+- Next: If desired, add dedicated docs for `summarize` and decide whether to reopen PR `#69` for historical continuity or leave it closed as superseded by the landed equivalent on `main`.
+
+### 2026-05-11 09:17 PDT — issue-162-163-runtime-followup
+
+- Objective: Fix the current actionable GitHub reports after the org migration and keep issue checking on a daily repair loop.
+- Changed: Updated the `check-new-issues` heartbeat to run daily and attempt actionable fixes; added a final alphaXiv REST fast-search fallback after the removed MCP search tools and `discover_papers`; aliased `@earendil-works/*` Pi runtime imports to the same initialized bundled runtime as `@mariozechner/*`; wired that loader patch into the vendored runtime archive path; bumped Feynman to `v0.2.53`.
+- Verified: Focused alpha-hub and Pi extension-loader regression tests passed locally; full `npm test`, `npm run typecheck`, root `npm run build`, `node scripts/prepare-runtime-workspace.mjs`, package dry-run, and website build with Node 24 passed; the packaged runtime archive contains the alphaXiv REST fallback and dual namespace loader aliases; GitHub release `v0.2.53` built all native assets.
+- Failed / learned: The previous `v0.2.52` search patch was too narrow because it assumed `discover_papers` was always present when the older search tools disappeared. The first `v0.2.53` publish workflow failed at npm publish with `ENEEDAUTH` after the org move, while GitHub native release assets succeeded.
+- Blockers: npm `latest` remains `0.2.52` until the npm trusted publisher is updated for `companion-inc/feynman` or an `NPM_TOKEN` secret is provided.
+- Next: Re-run the publish workflow after npm auth is fixed, then report release evidence on issues `#162` and `#163`.
+
+### 2026-05-11 09:50 PDT — packed-install-e2e
+
+- Objective: Run a true packed-install E2E for the latest Feynman runtime fixes.
+- Changed: Fixed packed npm installs that hoist dependencies outside Feynman's package root by falling back to the vendored `.feynman/npm` Pi runtime; patched both package-local and vendored runtime node_modules; bumped Feynman to `v0.2.54`.
+- Verified: Focused runtime tests, full `npm test`, `npm run typecheck`, root build, runtime workspace prep, packed tarball install into a clean temp prefix/home, `feynman doctor`, prompt launch past Pi resolution, issue-specific installed runtime patch inspection, `node bin/feynman.js --version`, diff whitespace check, and website build with Node 24 passed.
+- Failed / learned: The first packed-install E2E showed `feynman --mode json --prompt ...` failed before Pi launch with `Pi CLI not found` because runtime resolution only checked package-local `node_modules`.
+- Blockers: npm publishing is still externally blocked until npm trusted publishing or `NPM_TOKEN` is updated for `companion-inc/feynman`.
+- Next: Push `v0.2.54`, watch release CI, and rerun npm publish after npm trust/secret access is fixed.
+
+### 2026-04-12 13:20 PDT — capital-france (citation verification brief)
+
+- Objective: Verify citations in the capital-of-France draft and produce a cited verifier brief.
+- Changed: Read `outputs/.drafts/capital-france-draft.md`, `notes/capital-france-research-web.md`, and `notes/capital-france-legal-context.md`; fetched the three draft URLs directly; wrote `notes/capital-france-brief.md` with inline numbered citations and a numbered direct-URL sources list.
+- Verified: Confirmed the Insee, Sénat, and Élysée URLs were reachable on 2026-04-12; confirmed Insee and Sénat support the core claim that Paris is the capital of France; marked the Élysée homepage as contextual-only support.
+- Failed / learned: The Élysée homepage does not explicitly state the core claim, so it should not be used as sole evidence for capital status.
+- Blockers: None for the verifier brief; any stronger legal memo would still need a more direct constitutional/statutory basis if that specific question is asked.
+- Next: Promote the brief into the final output or downgrade/remove any claim that leans on the Élysée URL alone.
+
+### 2026-04-20 17:25 PDT — gemini-browser-fallback-opt-in
+
+- Objective: Stop `/deepresearch` web search from reaching Chromium cookie access by default after users reported macOS Keychain prompts from Gemini Web fallback.
+- Changed: Updated the `pi-web-access` runtime patch so `isGeminiWebAvailable` returns unavailable unless `web-search.json` explicitly sets `geminiBrowser`/`allowBrowserAuth`/`browserAuth` true; changed search status output and docs to report Gemini browser fallback as disabled by default; made `feynman search set` and `feynman search clear` write `geminiBrowser: false`; corrected web-search docs to recommend Exa, Perplexity, or Gemini API keys for `/deepresearch`.
+- Verified: Added regression coverage for the browser fallback opt-in patch and status output; ran focused web-access/search-command tests, full `npm test`, `npm run typecheck`, root `npm run build`, and website `npm run build`.
+- Failed / learned: Website build still emits duplicate-content-id warnings for docs pages, but it completes; this pass did not address the pre-existing Astro warning.
+- Blockers: Did not run a live `/deepresearch` smoke test because the risk being fixed is source-level keychain probing, which is covered by the deterministic `pi-web-access` patch tests.
+- Next: Release the runtime patch and answer the security concern by explaining that browser-cookie access is now explicit opt-in rather than the default fallback.
+
+### 2026-05-03 21:19 PDT — github-issues-e2e
+
+- Objective: Read all currently open GitHub issues, separate concrete regressions from feature-scale requests, and finish the scoped fixes with source, CLI, installer, runtime, and RPC verification.
+- Changed: Added a reusable `pi-tui` patch that truncates overwide rendered lines with `sliceByColumn` instead of crashing; wired that patch into startup node_modules patching and vendored runtime preparation; added explicit OpenCode skills installer support for `.opencode/skills/feynman` on Unix and PowerShell; synced README, website docs, and public website installer copies; wrote `outputs/.plans/github-issues-e2e.md` as the run ledger.
+- Verified: Checked current Pi and OpenCode docs through Context7; confirmed latest upstream `pi-tui` still has the terminal-width throw so upgrading alone would not fix `#148`; ran focused patch/installer tests, full `npm test` (146 tests), `npm run typecheck`, root `npm run build`, and website `npm run build`; ran `node scripts/prepare-runtime-workspace.mjs` and extracted `.feynman/runtime-workspace.tgz` to verify the packaged `pi-tui` patch and `pruneVersion: 5`; smoke-tested `feynman --help`, `feynman search status`, and `--mode rpc` with a temp custom model plus JSONL `get_state`.
+- Failed / learned: A direct CLI smoke with `/usr/local/bin/node` failed because that shell resolves Node `20.17.0`, below Feynman's `>=20.19.0` floor; rerunning with the bundled supported Node `24.14.0` passed. The first RPC smoke from the repo cwd loaded project-local optional packages and hit the existing `pi-web-access` source parse issue, so the accepted RPC smoke used an isolated `--cwd` and temp settings to test the RPC protocol itself.
+- Blockers: Issues `#135`-`#139` are larger provider/runtime backend feature proposals, not safe one-pass bug fixes; they were read and classified but not implemented here.
+- Next: Close or respond to `#148` and `#143` with the shipped fixes and test evidence, then decide separately whether the provider/runtime proposals belong in a roadmap issue or implementation specs.
+
+### 2026-05-03 23:40 PDT — pi-upstream-alignment
+
+- Objective: Keep Feynman as a thin wrapper over upstream Pi runtime behavior while preserving the curated package stack and Feynman research/theme surface.
+- Changed: Upgraded direct Pi packages to `@mariozechner/pi-ai@0.72.1` and `@mariozechner/pi-coding-agent@0.72.1`; restored the curated core package stack with `@devkade/pi-opentelemetry`; extended `pi-web-access` patches for current upstream `gemini-web-config.ts` and older `gemini-web.ts`; wired `pi-web-access` and `pi-tui` patches into the vendored runtime archive path; bumped runtime archive `pruneVersion` to `6`; documented the run in `outputs/.plans/pi-upstream-alignment.md`.
+- Verified: Ran Context7 against current Pi docs; ran `npm test` (147 tests), `npm run typecheck`, root `npm run build`, and website `npm run build`; rebuilt `.feynman/runtime-workspace.tgz` with bundled Node `24.14.0`; extracted the archive and verified the packaged `pi-tui`, `pi-web-access`, and manifest patches; ran live one-shot prompts via stored Anthropic OAuth and received `OK` and `42`; reran `feynman model list` and confirmed Anthropic models; ran isolated RPC `get_state` successfully with a temp custom model; ran `feynman search status` and confirmed Gemini browser fallback remains disabled.
+- Failed / learned: The packaging script initially omitted the `pi-web-access` patch path, so the local installed package was fixed but the release archive was not; wiring the patch into `prepare-runtime-workspace.mjs` fixed the packaged path. No env API keys were present for OpenAI, Anthropic, Gemini, Google, Exa, Perplexity, Mistral, or OpenRouter, so live non-Anthropic provider/API-search checks remain blocked.
+- Blockers: Live web search through Exa/Perplexity/Gemini API could not be tested without keys; browser-cookie Gemini fallback is intentionally disabled by default. `/usr/local/bin/node` remains below Feynman's Node floor, so supported runtime smokes used the bundled Node.
+- Next: Review/stage the intended subset, then split unrelated pre-existing local changes if needed before commit/release.
+
+### 2026-05-04 01:45 PDT — pi-thin-wrapper-live-e2e
+
+- Objective: Finish the Pi-thin-wrapper cleanup with local credentials, live providers, RPC, and packaged runtime verification instead of relying only on unit tests.
+- Changed: Removed the Feynman-only Anthropic model overlay so `createModelRegistry` now trusts upstream Pi's model catalog; moved the `pi-web-access` `/search` to `/web-results` rename into the shared patch path so local and archived runtimes match; removed the stale Google legacy schema patch that no longer matches `@mariozechner/pi-ai@0.72.1`.
+- Verified: Used local credentials without printing secret values; live Feynman one-shots passed for Anthropic OAuth, Anthropic API key, OpenAI API key, Gemini API key, and OpenRouter API key; direct `pi-web-access` smokes passed for Exa no-key MCP fallback and Gemini API search; Perplexity correctly reported unavailable because no key was found; final RPC `get_state` and `get_available_models` passed through `feynman --mode rpc`; rebuilt and extracted `.feynman/runtime-workspace.tgz` and verified packaged `web-results`, `FEYNMAN_WEB_SEARCH_CONFIG`, Gemini browser opt-in aliases, escaped Gemini messaging, `pi-tui` truncation, `pruneVersion: 6`, Pi `0.72.1`, and `@devkade/pi-opentelemetry`; ran full `npm test` (144 tests), `npm run typecheck`, root `npm run build`, and website `npm run build` with the bundled Node `24.14.0`.
+- Failed / learned: OpenCode OAuth stores for Anthropic, Google, and OpenAI were expired, while usable API keys existed in project env files; the first OpenAI final sentinel used hyphens while also asking for no punctuation, so the model removed the hyphens and the smoke was rerun with `OAIFINALOK`; Perplexity remains blocked by no local key.
+- Blockers: No Perplexity live API check until a real `PERPLEXITY_API_KEY` is provided; `/usr/local/bin/node` is still `20.17.0`, below Feynman's runtime floor.
+- Next: Stage the intended repo changes, keep the Feynman theme/package stack, and avoid adding provider aliases or runtime patches unless they are backed by upstream gaps plus packaged-runtime tests.
+
+### 2026-05-04 19:46 PDT — telemetry-noise-removal
+
+- Objective: Remove the default OpenTelemetry package from Feynman so local and public TUI sessions do not show telemetry status noise or invite end-user telemetry setup by default.
+- Changed: Removed `@devkade/pi-opentelemetry` from the bundled package stack and user-facing docs; removed default OTEL service env injection; kept a legacy settings prune path so existing default installs that only gained telemetry from the curated stack are normalized back to the current core package list; added startup pruning for stale bundled-package symlinks so upgrades remove the old `@opentelemetry` links from Feynman's managed npm prefix.
+- Changed: Reviewed open GitHub issues and PRs, folded in the useful parts of PRs `#133`, `#144`, and `#149`, and left PR `#141` unmerged because the local `geminiBrowser` opt-in path is stricter and already patched into the vendored runtime.
+- Verified: Ran `npm test` (150 tests), `npm run typecheck`, root `npm run build`, and website `npm run build`; repacked and globally installed `@companion-ai/feynman@0.2.40`; confirmed the packaged tarball and active settings contain no telemetry package; confirmed the installed startup path removes leftover `@opentelemetry` symlinks; ran a live one-shot through the installed CLI, RPC `get_state`/`get_available_models`, direct Gemini API web search, and an actual TUI launch with no `otel active` footer.
+- Failed / learned: Historical changelog entries still mention earlier telemetry verification because those entries describe past runs; the first stale-link check ran before `feynman status` had finished, so it still saw old links until the newly installed startup pruning executed.
+- Blockers: None for source removal.
+- Next: Commit and push the validated cleanup.
+
+### 2026-05-05 22:17 PDT — rpc-package-sync-fix
+
+- Objective: Re-test the shipped issue fixes through the real installed/RPC path after discovering `v0.2.41` had not been exercised deeply enough.
+- Changed: Added an embedded Pi package-manager patch so runtime npm installs include `--legacy-peer-deps`; wired it into packaged runtime preparation; bumped Feynman to `v0.2.42`; documented the release.
+- Verified: Reproduced the `v0.2.41` RPC startup failure in the real release binary from the repo cwd: Pi attempted project package sync for `@aliou/pi-processes` and failed on peer dependency resolution before RPC could complete. After the patch, local `0.2.42` RPC accepted a JSONL `prompt`, streamed `Feynman RPC OK`, emitted `turn_end`, and emitted `agent_end`.
+- Failed / learned: Running `feynman --mode rpc "prompt"` is not a valid deep RPC smoke; the actual protocol requires JSON-line commands on stdin and keeping stdin open.
+- Blockers: Need push `v0.2.42`, wait for native release assets, then re-run the same RPC smoke against the released native asset before closing this loop.
+- Next: Commit, push, verify CI/native release, and test the released `v0.2.42` asset end to end.
+
+### 2026-05-09 18:38 PDT — issue-158-160-runtime-sweep
+
+- Objective: Address the current open tracker items rather than only the already-shipped package-peer fix.
+- Changed: Added top-of-prompt tool discipline to every workflow; extended the Pi agent-core runtime patch to normalize common hallucinated tool aliases (`search_web` to `web_search`, bare `fetch` / `WebFetch` / `read_url_content` to `fetch_content`); patched bundled alpha-hub search to fall back to `discover_papers` when alphaXiv removes older search tool names; seeded bundled runtime packages before package updates; included `typebox` plus both legacy `@mariozechner/*` and current `@earendil-works/*` Pi runtime peers; applied the Windows docker-probe fix from PR `#157`; bumped to `v0.2.52`.
+- Verified: `npm test`, `npm run typecheck`, `npm run build`, root and website production `npm audit`, website typecheck/build, `feynman doctor`, `feynman update`, `npm pack --dry-run`, and runtime archive extraction all passed. The installed Feynman prefix now has bundled links for `typebox` and `@earendil-works/pi-coding-agent`.
+- Failed / learned: The public alphaXiv MCP docs still list the older search tools, but issue `#159` reports a live authenticated tools/list response with only `discover_papers`; the fix therefore keeps old-tool calls first and only falls back on specific `Tool ... not found` failures. The comment on issue `#160` cited old `pi-btw` / `pi-markdown-preview` versions, but the current npm tarballs are the ones importing `@earendil-works/*`, so the repair path covers both namespaces.
+- Blockers: Push/release and GitHub issue/PR comments are still pending in this run.
+- Next: Commit, push `v0.2.52`, wait for the publish workflow, then close/comment the resolved tracker items with exact release evidence.

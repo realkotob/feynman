@@ -20,7 +20,7 @@ function Normalize-Version {
 }
 
 function Resolve-LatestReleaseVersion {
-  $page = Invoke-WebRequest -Uri "https://github.com/getcompanion-ai/feynman/releases/latest"
+  $page = Invoke-WebRequest -Uri "https://github.com/companion-inc/feynman/releases/latest"
   $match = [regex]::Match($page.Content, 'releases/tag/v([0-9][^"''<>\s]*)')
   if (-not $match.Success) {
     throw "Failed to resolve the latest Feynman release version."
@@ -46,7 +46,7 @@ function Resolve-ReleaseMetadata {
 
   $bundleName = "feynman-$resolvedVersion-$AssetTarget"
   $archiveName = "$bundleName.$BundleExtension"
-  $baseUrl = if ($env:FEYNMAN_INSTALL_BASE_URL) { $env:FEYNMAN_INSTALL_BASE_URL } else { "https://github.com/getcompanion-ai/feynman/releases/download/v$resolvedVersion" }
+  $baseUrl = if ($env:FEYNMAN_INSTALL_BASE_URL) { $env:FEYNMAN_INSTALL_BASE_URL } else { "https://github.com/companion-inc/feynman/releases/download/v$resolvedVersion" }
 
   return [PSCustomObject]@{
     ResolvedVersion = $resolvedVersion
@@ -109,8 +109,8 @@ This usually means the release exists, but not all platform bundles were uploade
 
 Workarounds:
   - try again after the release finishes publishing
-  - install via pnpm instead: pnpm add -g @companion-ai/feynman
-  - install via bun instead: bun add -g @companion-ai/feynman
+  - pass the latest published version explicitly, e.g.:
+    & ([scriptblock]::Create((irm https://feynman.is/install.ps1))) -Version 0.2.31
 "@
   }
 
@@ -159,9 +159,7 @@ CALL "$bundleDir\feynman.cmd" %*
     Write-Warning "Current shell resolves feynman to $($resolvedCommand.Source)"
     Write-Host "Run in a new shell, or run: `$env:Path = '$installBinDir;' + `$env:Path"
     Write-Host "Then run: feynman"
-    if ($resolvedCommand.Source -like "*node_modules*@companion-ai*feynman*") {
-      Write-Host "If that path is an old global npm install, remove it with: npm uninstall -g @companion-ai/feynman"
-    }
+    Write-Host "If that path is an old package-manager install, remove it or put $installBinDir first on PATH."
   }
 
   Write-Host "Feynman $resolvedVersion installed successfully."

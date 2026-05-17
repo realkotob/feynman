@@ -177,11 +177,7 @@ warn_command_conflict() {
     step "Run now: export PATH=\"$INSTALL_BIN_DIR:\$PATH\" && hash -r && feynman"
     step "Or launch directly: $expected_path"
 
-    case "$resolved_path" in
-      *"/node_modules/@companion-ai/feynman/"* | *"/node_modules/.bin/feynman")
-        step "If that path is an old global npm install, remove it with: npm uninstall -g @companion-ai/feynman"
-        ;;
-    esac
+    step "If that path is an old package-manager install, remove it or put $INSTALL_BIN_DIR first on PATH."
   fi
 }
 
@@ -189,7 +185,7 @@ resolve_release_metadata() {
   normalized_version="$(normalize_version "$VERSION")"
 
   if [ "$normalized_version" = "latest" ]; then
-    release_page="$(download_text "https://github.com/getcompanion-ai/feynman/releases/latest")"
+    release_page="$(download_text "https://github.com/companion-inc/feynman/releases/latest")"
     resolved_version="$(printf '%s\n' "$release_page" | sed -n 's@.*releases/tag/v\([0-9][^"<>[:space:]]*\).*@\1@p' | head -n 1)"
 
     if [ -z "$resolved_version" ]; then
@@ -202,7 +198,7 @@ resolve_release_metadata() {
 
   bundle_name="feynman-${resolved_version}-${asset_target}"
   archive_name="${bundle_name}.${archive_extension}"
-  download_url="${FEYNMAN_INSTALL_BASE_URL:-https://github.com/getcompanion-ai/feynman/releases/download/v${resolved_version}}/${archive_name}"
+  download_url="${FEYNMAN_INSTALL_BASE_URL:-https://github.com/companion-inc/feynman/releases/download/v${resolved_version}}/${archive_name}"
 
   printf '%s\n%s\n%s\n%s\n' "$resolved_version" "$bundle_name" "$archive_name" "$download_url"
 }
@@ -264,8 +260,8 @@ This usually means the release exists, but not all platform bundles were uploade
 
 Workarounds:
   - try again after the release finishes publishing
-  - install via pnpm instead: pnpm add -g @companion-ai/feynman
-  - install via bun instead: bun add -g @companion-ai/feynman
+  - pass the latest published version explicitly, e.g.:
+    curl -fsSL https://feynman.is/install | bash -s -- 0.2.31
 EOF
   exit 1
 fi

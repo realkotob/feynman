@@ -7,6 +7,7 @@ import {
 	MERMAID_FALLBACK_PATHS,
 	PANDOC_FALLBACK_PATHS,
 	resolveExecutable,
+	type ResolvedExecutables,
 } from "../system/executables.js";
 
 export type PiRuntimeOptions = {
@@ -15,10 +16,12 @@ export type PiRuntimeOptions = {
 	sessionDir: string;
 	feynmanAgentDir: string;
 	feynmanVersion?: string;
+	mode?: "text" | "json" | "rpc";
 	thinkingLevel?: string;
 	explicitModelSpec?: string;
 	oneShotPrompt?: string;
 	initialPrompt?: string;
+	preLaunchNotice?: string;
 };
 
 export function getFeynmanNpmPrefixPath(feynmanAgentDir: string): string {
@@ -34,19 +37,34 @@ export function applyFeynmanPackageManagerEnv(feynmanAgentDir: string): string {
 }
 
 export function resolvePiPaths(appRoot: string) {
+	const packageLocalPiRoot = resolve(appRoot, "node_modules", "@mariozechner", "pi-coding-agent");
+	const workspaceNodeModulesPath = resolve(appRoot, ".feynman", "npm", "node_modules");
+	const workspacePiRoot = resolve(workspaceNodeModulesPath, "@mariozechner", "pi-coding-agent");
+	const piPackageRoot = existsSync(resolve(packageLocalPiRoot, "dist", "cli.js")) || !existsSync(resolve(workspacePiRoot, "dist", "cli.js"))
+		? packageLocalPiRoot
+		: workspacePiRoot;
+	const packageLocalTsxLoaderPath = resolve(appRoot, "node_modules", "tsx", "dist", "loader.mjs");
+	const workspaceTsxLoaderPath = resolve(workspaceNodeModulesPath, "tsx", "dist", "loader.mjs");
 	return {
-		piPackageRoot: resolve(appRoot, "node_modules", "@mariozechner", "pi-coding-agent"),
-		piCliPath: resolve(appRoot, "node_modules", "@mariozechner", "pi-coding-agent", "dist", "cli.js"),
+		piPackageRoot,
+		piCliPath: resolve(piPackageRoot, "dist", "cli.js"),
+		piMainPath: resolve(piPackageRoot, "dist", "main.js"),
+		piCliWrapperPath: resolve(appRoot, "dist", "pi", "pi-cli-wrapper.js"),
+		piCliWrapperSourcePath: resolve(appRoot, "src", "pi", "pi-cli-wrapper.ts"),
 		promisePolyfillPath: resolve(appRoot, "dist", "system", "promise-polyfill.js"),
 		promisePolyfillSourcePath: resolve(appRoot, "src", "system", "promise-polyfill.ts"),
-		tsxLoaderPath: resolve(appRoot, "node_modules", "tsx", "dist", "loader.mjs"),
+		tsxLoaderPath: existsSync(packageLocalTsxLoaderPath) || !existsSync(workspaceTsxLoaderPath)
+			? packageLocalTsxLoaderPath
+			: workspaceTsxLoaderPath,
 		researchToolsPath: resolve(appRoot, "extensions", "research-tools.ts"),
 		promptTemplatePath: resolve(appRoot, "prompts"),
 		systemPromptPath: resolve(appRoot, ".feynman", "SYSTEM.md"),
-		piWorkspaceNodeModulesPath: resolve(appRoot, ".feynman", "npm", "node_modules"),
+		piWorkspaceNodeModulesPath: workspaceNodeModulesPath,
 		nodeModulesBinPath: resolve(appRoot, "node_modules", ".bin"),
 	};
 }
+
+export type PiPaths = ReturnType<typeof resolvePiPaths>;
 
 export function toNodeImportSpecifier(modulePath: string): string {
 	return isAbsolute(modulePath) ? pathToFileURL(modulePath).href : modulePath;
@@ -57,6 +75,11 @@ export function validatePiInstallation(appRoot: string): string[] {
 	const missing: string[] = [];
 
 	if (!existsSync(paths.piCliPath)) missing.push(paths.piCliPath);
+	if (!existsSync(paths.piMainPath)) missing.push(paths.piMainPath);
+	if (!existsSync(paths.piCliWrapperPath)) {
+		const hasDevWrapper = existsSync(paths.piCliWrapperSourcePath) && existsSync(paths.tsxLoaderPath);
+		if (!hasDevWrapper) missing.push(paths.piCliWrapperPath);
+	}
 	if (!existsSync(paths.promisePolyfillPath)) {
 		// Dev fallback: allow running from source without `dist/` build artifacts.
 		const hasDevPolyfill = existsSync(paths.promisePolyfillSourcePath) && existsSync(paths.tsxLoaderPath);
@@ -68,8 +91,7 @@ export function validatePiInstallation(appRoot: string): string[] {
 	return missing;
 }
 
-export function buildPiArgs(options: PiRuntimeOptions): string[] {
-	const paths = resolvePiPaths(options.appRoot);
+export function buildPiArgs(options: PiRuntimeOptions, paths: PiPaths = resolvePiPaths(options.appRoot)): string[] {
 	const args = [
 		"--session-dir",
 		options.sessionDir,
@@ -83,6 +105,9 @@ export function buildPiArgs(options: PiRuntimeOptions): string[] {
 		args.push("--system-prompt", readFileSync(paths.systemPromptPath, "utf8"));
 	}
 
+	if (options.mode) {
+		args.push("--mode", options.mode);
+	}
 	if (options.explicitModelSpec) {
 		args.push("--model", options.explicitModelSpec);
 	}
@@ -98,8 +123,11 @@ export function buildPiArgs(options: PiRuntimeOptions): string[] {
 	return args;
 }
 
-export function buildPiEnv(options: PiRuntimeOptions): NodeJS.ProcessEnv {
-	const paths = resolvePiPaths(options.appRoot);
+export function buildPiEnv(
+	options: PiRuntimeOptions,
+	paths: PiPaths = resolvePiPaths(options.appRoot),
+	executables?: ResolvedExecutables,
+): NodeJS.ProcessEnv {
 	const feynmanNpmPrefixPath = getFeynmanNpmPrefixPath(options.feynmanAgentDir);
 	const feynmanNpmBinPath = resolve(feynmanNpmPrefixPath, "bin");
 	const feynmanWebSearchConfigPath = resolve(dirname(options.feynmanAgentDir), "web-search.json");
@@ -107,7 +135,10 @@ export function buildPiEnv(options: PiRuntimeOptions): NodeJS.ProcessEnv {
 	const currentPath = process.env.PATH ?? "";
 	const binEntries = [paths.nodeModulesBinPath, resolve(paths.piWorkspaceNodeModulesPath, ".bin"), feynmanNpmBinPath];
 	const binPath = binEntries.join(delimiter);
-
+	const pandocPath = process.env.PANDOC_PATH ?? executables?.pandoc ?? resolveExecutable("pandoc", PANDOC_FALLBACK_PATHS);
+	const mermaidPath = process.env.MERMAID_CLI_PATH ?? executables?.mermaid ?? resolveExecutable("mmdc", MERMAID_FALLBACK_PATHS);
+	const browserPath =
+		process.env.PUPPETEER_EXECUTABLE_PATH ?? executables?.browser ?? resolveExecutable("google-chrome", BROWSER_FALLBACK_PATHS);
 	return {
 		...process.env,
 		PATH: `${binPath}${delimiter}${currentPath}`,
@@ -117,15 +148,17 @@ export function buildPiEnv(options: PiRuntimeOptions): NodeJS.ProcessEnv {
 		FEYNMAN_WEB_SEARCH_CONFIG: feynmanWebSearchConfigPath,
 		FEYNMAN_NODE_EXECUTABLE: process.execPath,
 		FEYNMAN_BIN_PATH: resolve(options.appRoot, "bin", "feynman.js"),
+		FEYNMAN_PI_CLI_PATH: paths.piCliPath,
 		FEYNMAN_NPM_PREFIX: feynmanNpmPrefixPath,
 		// Ensure the Pi child process uses Feynman's agent dir for auth/models/settings.
+		// Patched Pi uses FEYNMAN_CODING_AGENT_DIR; upstream Pi uses PI_CODING_AGENT_DIR.
+		FEYNMAN_CODING_AGENT_DIR: options.feynmanAgentDir,
 		PI_CODING_AGENT_DIR: options.feynmanAgentDir,
-		PANDOC_PATH: process.env.PANDOC_PATH ?? resolveExecutable("pandoc", PANDOC_FALLBACK_PATHS),
+		PANDOC_PATH: pandocPath,
 		PI_HARDWARE_CURSOR: process.env.PI_HARDWARE_CURSOR ?? "1",
 		PI_SKIP_VERSION_CHECK: process.env.PI_SKIP_VERSION_CHECK ?? "1",
-		MERMAID_CLI_PATH: process.env.MERMAID_CLI_PATH ?? resolveExecutable("mmdc", MERMAID_FALLBACK_PATHS),
-		PUPPETEER_EXECUTABLE_PATH:
-			process.env.PUPPETEER_EXECUTABLE_PATH ?? resolveExecutable("google-chrome", BROWSER_FALLBACK_PATHS),
+		MERMAID_CLI_PATH: mermaidPath,
+		PUPPETEER_EXECUTABLE_PATH: browserPath,
 		// Always pin npm's global prefix to the Feynman workspace. npm injects
 		// lowercase config vars into child processes, which would otherwise leak
 		// the caller's global prefix into Pi.

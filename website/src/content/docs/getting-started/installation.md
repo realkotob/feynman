@@ -1,11 +1,11 @@
 ---
 title: Installation
-description: Install Feynman on macOS, Linux, or Windows using curl, pnpm, or bun.
+description: Install Feynman on macOS, Linux, or Windows with curl or npm.
 section: Getting Started
 order: 1
 ---
 
-Feynman ships as a standalone runtime bundle for macOS, Linux, and Windows, and as a package-manager install for environments where Node.js is already installed. The recommended approach is the one-line installer, which downloads a prebuilt native bundle with zero external runtime dependencies.
+Feynman can be installed either as a standalone runtime bundle or as an npm package. For most users, the standalone installer is the simplest path because it downloads a prebuilt native bundle with zero external runtime dependencies.
 
 ## One-line installer (recommended)
 
@@ -17,7 +17,7 @@ curl -fsSL https://feynman.is/install | bash
 
 The installer detects your OS and architecture automatically. On macOS it supports both Intel and Apple Silicon. On Linux it supports x64 and arm64. The launcher is installed to `~/.local/bin`, the bundled runtime is unpacked into `~/.local/share/feynman`, and your `PATH` is updated when needed.
 
-If you previously installed Feynman via `npm`, `pnpm`, or `bun` and still see local Node.js errors after a curl install, your shell is probably still resolving the older global binary first. Run `which -a feynman`, then `hash -r`, or launch the standalone shim directly with `~/.local/bin/feynman`.
+If you previously installed Feynman through a package manager and still see local Node.js errors after a curl install, your shell is probably still resolving the older global binary first. Run `which -a feynman`, then `hash -r`, or launch the standalone shim directly with `~/.local/bin/feynman`.
 
 On **Windows**, open PowerShell as Administrator and run:
 
@@ -27,20 +27,87 @@ irm https://feynman.is/install.ps1 | iex
 
 This installs the Windows runtime bundle under `%LOCALAPPDATA%\Programs\feynman`, adds its launcher to your user `PATH`, and lets you re-run the installer at any time to update.
 
+## Alternative: npm install
+
+If you prefer installing Feynman into an existing Node.js environment, use npm instead:
+
+```bash
+npm install -g @companion-ai/feynman
+```
+
+This path uses your local Node.js runtime instead of the bundled standalone runtime. It requires a compatible Node.js version that satisfies Feynman's current engine range: `>=20.19.0 <25`.
+
+## Updating the standalone app
+
+To update the standalone Feynman app on macOS, Linux, or Windows, rerun the installer you originally used. That replaces the downloaded runtime bundle with the latest tagged release.
+
+`feynman update` is different: it updates installed Pi packages inside Feynman's environment, not the standalone app bundle itself.
+
+If you installed Feynman with npm, upgrade it with:
+
+```bash
+npm install -g @companion-ai/feynman@latest
+```
+
+## Uninstalling
+
+Feynman does not currently ship a dedicated `uninstall` command. Remove the standalone launcher and runtime bundle directly, then optionally remove the Feynman home directory if you also want to delete settings, sessions, and installed package state. If you also want to clear alphaXiv login state, remove `~/.ahub`.
+
+If you installed Feynman with npm, uninstall it with:
+
+```bash
+npm uninstall -g @companion-ai/feynman
+```
+
+On macOS or Linux:
+
+```bash
+rm -f ~/.local/bin/feynman
+rm -rf ~/.local/share/feynman
+# optional: remove settings, sessions, and installed package state
+rm -rf ~/.feynman
+# optional: remove alphaXiv auth state
+rm -rf ~/.ahub
+```
+
+On Windows PowerShell:
+
+```powershell
+Remove-Item "$env:LOCALAPPDATA\\Programs\\feynman" -Recurse -Force
+# optional: remove settings, sessions, and installed package state
+Remove-Item "$HOME\\.feynman" -Recurse -Force
+# optional: remove alphaXiv auth state
+Remove-Item "$HOME\\.ahub" -Recurse -Force
+```
+
+If you added the launcher directory to `PATH` manually, remove that entry as well.
+
 ## Skills only
 
 If you only want Feynman's research skills and not the full terminal runtime, install the skill library separately.
 
-For a user-level install into `~/.codex/skills/feynman`:
+For a Codex user-level install into `~/.codex/skills/feynman`:
 
 ```bash
 curl -fsSL https://feynman.is/install-skills | bash
 ```
 
-For a repo-local install into `.agents/skills/feynman` under the current repository:
+You can also name the Codex target explicitly:
+
+```bash
+curl -fsSL https://feynman.is/install-skills | bash -s -- --codex
+```
+
+For a repo-local Claude/agent install into `.agents/skills/feynman` under the current repository:
 
 ```bash
 curl -fsSL https://feynman.is/install-skills | bash -s -- --repo
+```
+
+For an OpenCode project-local install into `.opencode/skills/feynman`:
+
+```bash
+curl -fsSL https://feynman.is/install-skills | bash -s -- --opencode
 ```
 
 On Windows, install the skills into your Codex skill directory:
@@ -49,10 +116,22 @@ On Windows, install the skills into your Codex skill directory:
 irm https://feynman.is/install-skills.ps1 | iex
 ```
 
+Or name the Codex target explicitly:
+
+```powershell
+& ([scriptblock]::Create((irm https://feynman.is/install-skills.ps1))) -Scope Codex
+```
+
 Or install them repo-locally:
 
 ```powershell
 & ([scriptblock]::Create((irm https://feynman.is/install-skills.ps1))) -Scope Repo
+```
+
+Or install them into an OpenCode project:
+
+```powershell
+& ([scriptblock]::Create((irm https://feynman.is/install-skills.ps1))) -Scope OpenCode
 ```
 
 These installers download the bundled `skills/` and `prompts/` trees plus the repo guidance files referenced by those skills. They do not install the Feynman terminal, bundled Node runtime, auth storage, or Pi packages.
@@ -62,44 +141,14 @@ These installers download the bundled `skills/` and `prompts/` trees plus the re
 The one-line installer already targets the latest tagged release. To pin an exact version, pass it explicitly:
 
 ```bash
-curl -fsSL https://feynman.is/install | bash -s -- 0.2.17
+curl -fsSL https://feynman.is/install | bash -s -- 0.2.31
 ```
 
 On Windows:
 
 ```powershell
-& ([scriptblock]::Create((irm https://feynman.is/install.ps1))) -Version 0.2.17
+& ([scriptblock]::Create((irm https://feynman.is/install.ps1))) -Version 0.2.31
 ```
-
-## pnpm
-
-If you already have Node.js `20.19.0` or newer installed, you can install Feynman globally via `pnpm`:
-
-```bash
-pnpm add -g @companion-ai/feynman
-```
-
-Or run it directly without installing:
-
-```bash
-pnpm dlx @companion-ai/feynman
-```
-
-## bun
-
-`bun add -g` and `bunx` still use your local Node runtime for Feynman itself, so the same Node.js `20.19.0+` requirement applies.
-
-```bash
-bun add -g @companion-ai/feynman
-```
-
-Or run it directly without installing:
-
-```bash
-bunx @companion-ai/feynman
-```
-
-Both package-manager distributions ship the same core application but depend on Node.js being present on your system. The standalone installer is preferred because it bundles its own Node runtime and works without a separate Node installation.
 
 ## Post-install setup
 
@@ -120,15 +169,3 @@ feynman --version
 ```
 
 If you see a version number, you are ready to go. Run `feynman doctor` at any time to diagnose configuration issues, missing dependencies, or authentication problems.
-
-## Local development
-
-For contributing or running Feynman from source:
-
-```bash
-git clone https://github.com/getcompanion-ai/feynman.git
-cd feynman
-nvm use || nvm install
-npm install
-npm start
-```
