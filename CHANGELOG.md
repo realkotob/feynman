@@ -15,6 +15,15 @@ Use this file to track chronology, not release notes. Keep entries short, factua
 - Blockers: ...
 - Next: ...
 
+### 2026-05-16 17:43 PDT — hindsight-memory-preset
+
+- Objective: Address issue `#166` by making Hindsight memory installable through Feynman's optional package preset system.
+- Changed: Added a `hindsight` optional preset for `@luxusai/pi-hindsight`, added `hindsight` and `pi-hindsight` update aliases, bumped the package to `0.2.58`, and updated release, package-stack, and setup docs.
+- Verified: Live npm metadata and README for Hindsight Pi packages were checked; full root tests, typecheck, root build, root and website production audits, website build, package dry-run, package-list smoke, and a temp-home `feynman packages install hindsight` smoke passed locally.
+- Failed / learned: The issue body was empty, but live npm package research found multiple Hindsight Pi packages; `@luxusai/pi-hindsight` is the most current docs-backed fit for Feynman's newer Pi runtime namespace while remaining optional.
+- Blockers: Need commit, push, release workflow confirmation, npm latest verification, and issue update.
+- Next: Push `main`, watch release CI, verify npm latest, then update and close `#166`.
+
 ### 2026-05-15 03:07 PDT — editor-input-contrast
 
 - Objective: Fix issue `#165`, where macOS/iTerm users could not read typed text in Feynman's dark interactive input box.

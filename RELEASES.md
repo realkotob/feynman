@@ -4,6 +4,18 @@ This file is the public release history for Feynman. Keep entries user-facing: w
 
 GitHub release notes are generated from the matching `## vX.Y.Z` section in this file.
 
+## v0.2.58 - 2026-05-16
+
+### Optional Packages
+
+- Added a `hindsight` optional preset that installs `@luxusai/pi-hindsight`, giving users a first-class path to Hindsight-backed long-term memory without adding it to the default install.
+- Added `hindsight` and `pi-hindsight` update aliases so `feynman update hindsight` resolves to the same package source.
+- Updated the package-stack and setup docs to show Hindsight as an optional memory surface and note that it requires a Hindsight server or Hindsight Cloud account.
+
+### Validation
+
+- Added regression coverage for the new optional preset, `all-extras` expansion, and update aliases.
+
 ## v0.2.57 - 2026-05-15
 
 ### Runtime Reliability
